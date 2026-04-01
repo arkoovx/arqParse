@@ -12,6 +12,7 @@ from typing import Dict, List, Optional, Tuple
 
 from config import BIN_DIR, XRAY_TIMEOUT
 from parsers.xray_parser import create_xray_config, is_valid_xray_config, parse_config
+from utils.logger import log
 
 try:
     import requests
@@ -245,12 +246,30 @@ class XrayTester:
         timeout = timeout or XRAY_TIMEOUT
         working = []
         stop_flag = threading.Event()
+        progress_lock = threading.Lock()
+        tested_count = 0
+        total_count = len(urls)
+
+        log(
+            f"⏳ Запускаю тестирование Xray: всего {total_count} конфигов, "
+            f"параллельность {concurrency}, таймаут {timeout:.1f}с"
+        )
 
         def test_with_progress(url: str) -> Optional[Tuple[str, float]]:
+            nonlocal tested_count
             if stop_flag.is_set():
                 return None
 
             result = self.test_single(url, target_url, timeout)
+
+            with progress_lock:
+                tested_count += 1
+                # Периодический прогресс, чтобы в логах было видно что процесс жив.
+                if tested_count == 1 or tested_count % 100 == 0 or tested_count == total_count:
+                    log(
+                        f"📈 Прогресс Xray: {tested_count}/{total_count}, "
+                        f"найдено рабочих: {len(working)}/{required_count}"
+                    )
 
             with self._process_lock:
                 if result[1] and result[2] <= max_ping_ms:
@@ -283,6 +302,8 @@ class XrayTester:
 
         # Сортируем по пингу (лучшие первыми)
         working.sort(key=lambda x: x[1])
+
+        log(f"🏁 Тестирование Xray завершено: найдено {len(working)} рабочих конфигов")
 
         return working[:required_count]
 
