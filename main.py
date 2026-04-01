@@ -13,7 +13,7 @@ import os
 import signal
 import sys
 
-from config import TASKS
+from config import MTPROTO_CONCURRENCY, TASKS, XRAY_CONCURRENCY
 from downloader import download_all
 from testers.mtproto_tester import MTProtoTester
 from testers.xray_tester import XrayTester
@@ -75,7 +75,7 @@ def process_task(task: dict) -> list:
             target_url=task["target_url"],
             required_count=task["required_count"],
             max_ping_ms=task["max_ping_ms"],
-            concurrency=50,
+            concurrency=XRAY_CONCURRENCY,
         )
 
     elif task["type"] == "mtproto":
@@ -86,7 +86,7 @@ def process_task(task: dict) -> list:
             urls=lines,
             required_count=task["required_count"],
             max_ping_ms=task["max_ping_ms"],
-            concurrency=200,
+            concurrency=MTPROTO_CONCURRENCY,
         )
 
     else:

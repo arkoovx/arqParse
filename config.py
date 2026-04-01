@@ -49,7 +49,7 @@ TASKS = [
 
 # Настройки тестирования
 XRAY_TIMEOUT = 5.0  # Таймаут HTTP теста (сек)
-XRAY_CONCURRENCY = 50  # Параллельных тестов
+XRAY_CONCURRENCY = 200  # Параллельных тестов
 MTPROTO_TIMEOUT = 3.0  # Таймаут TCP теста (сек)
 MTPROTO_CONCURRENCY = 200  # Параллельных тестов
 

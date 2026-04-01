@@ -10,7 +10,7 @@ import threading
 import time
 from typing import Dict, List, Optional, Tuple
 
-from config import BIN_DIR, XRAY_TIMEOUT
+from config import BIN_DIR, TEST_URLS_XRAY, XRAY_TIMEOUT
 from parsers.xray_parser import create_xray_config, is_valid_xray_config, parse_config
 from utils.logger import log
 
@@ -159,37 +159,52 @@ class XrayTester:
                 self._running_processes.remove(process)
 
     def test_through_proxy(self, socks_port: int, timeout: float, target_url: str) -> Tuple[bool, float]:
-        """Тестирует соединение через SOCKS прокси."""
+        """Тестирует соединение через SOCKS прокси.
+
+        Логика приближена к оригинальному rjsxrd:
+        1) сначала пробуем URL задачи;
+        2) затем fallback на набор generate_204 URL.
+        """
         if not REQUESTS_AVAILABLE:
             return False, 0.0
 
         proxy_url = f"socks5h://127.0.0.1:{socks_port}"
+        test_urls = [target_url] + [url for url in TEST_URLS_XRAY if url != target_url]
 
         session = requests.Session()
-        session.proxies = {"http": proxy_url, "https": proxy_url}
-
         retry = Retry(total=0)
         adapter = HTTPAdapter(max_retries=retry)
         session.mount("http://", adapter)
         session.mount("https://", adapter)
 
-        # Делаем 2 запроса как v2rayN, берём минимальный
-        latencies = []
+        # Как в оригинале: перебираем несколько тестовых URL и берём первый успешный.
+        for test_url in test_urls:
+            latencies = []
 
-        for _ in range(2):
-            try:
-                start = time.perf_counter()
-                session.get(target_url, timeout=timeout, allow_redirects=True)
-                latency = (time.perf_counter() - start) * 1000
-                latencies.append(latency)
-                break
-            except Exception:
-                continue
+            # Как в v2rayN/rjsxrd: делаем до 2 попыток и берём минимальный пинг.
+            for _ in range(2):
+                try:
+                    start = time.perf_counter()
+                    response = session.get(
+                        test_url,
+                        proxies={"http": proxy_url, "https": proxy_url},
+                        timeout=(min(10.0, timeout), timeout),
+                        allow_redirects=True,
+                    )
+                    if response.status_code >= 400:
+                        continue
+
+                    latency = (time.perf_counter() - start) * 1000
+                    latencies.append(latency)
+                    break
+                except Exception:
+                    continue
+
+            if latencies:
+                session.close()
+                return True, min(latencies)
 
         session.close()
-
-        if latencies:
-            return True, min(latencies)
         return False, 0.0
 
     def test_single(self, url: str, target_url: str, timeout: float = None) -> Tuple[str, bool, float]:
