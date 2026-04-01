@@ -395,7 +395,7 @@ def test_batch(
     with ThreadPoolExecutor(max_workers=concurrency) as executor:
         futures = {executor.submit(test_with_progress, url): url for url in urls}
         try:
-            for future in as_completed(futures, timeout=timeout + 10):
+            for future in as_completed(futures):
                 if stop_flag.is_set():
                     break
                 try:
@@ -405,8 +405,8 @@ def test_batch(
                 except Exception:
                     with results_lock:
                         results.append((futures[future], False, 0.0))
-        except TimeoutError:
-            pass
+        except KeyboardInterrupt:
+            stop_flag.set()
         finally:
             stop_flag.set()
             executor.shutdown(wait=False, cancel_futures=True)
