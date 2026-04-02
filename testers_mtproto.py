@@ -44,11 +44,13 @@ def test_mtproto_configs(
 ) -> List[Tuple[str, float]]:
     """
     Асинхронно тестирует список MTProto конфигов.
+    Останавливает тестирование когда найдено достаточное количество рабочих конфигов.
     """
     results = []
     total = len(configs)
     processed = [0]
     lock = threading.Lock()
+    stop_flag = threading.Event()
     
     print(f"[...] Тестирование {total} MTProto конфигов ({max_workers} потоков)...")
     
@@ -56,6 +58,8 @@ def test_mtproto_configs(
         future_to_url = {executor.submit(_test_single_mtproto, cfg, 5.0): cfg for cfg in configs}
         
         for future in as_completed(future_to_url):
+            if stop_flag.is_set():
+                break
             try:
                 success, ping_ms, url = future.result()
                 
@@ -67,13 +71,15 @@ def test_mtproto_configs(
                         print(f"  [{processed[0]}/{total}] ✓ {ping_ms:.0f} мс (найдено: {len(results)}/{required_count})")
                         
                         if len(results) >= required_count:
-                            executor.shutdown(wait=False, cancel_futures=True)
-                            break
+                            stop_flag.set()
                     else:
                         print(f"  [{processed[0]}/{total}] ✗ {'timeout' if ping_ms == float('inf') else f'{ping_ms:.0f} мс'}")
             except Exception:
                 with lock:
                     processed[0] += 1
+        
+        if stop_flag.is_set():
+            executor.shutdown(wait=False, cancel_futures=True)
     
     # Сортируем по пингу (меньше = лучше)
     results.sort(key=lambda x: x[1])

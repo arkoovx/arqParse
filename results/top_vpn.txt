@@ -1,9 +1,4 @@
-#profile-title: ArcParse results
+#profile-title: ArcVPN Free | Обычный
 #profile-update-interval: 48
-#support-url: https://github.com/arkoovx/ArcParse
+#support-url: https://t.me/arcparse
 
-vless://8910cbb3-33b1-4266-a243-ac780ac63394@pq-albania1.09vpn.com:80?path=%2Fvless%2F&security=&encryption=none&type=ws#%F0%9F%87%A6%F0%9F%87%B1%40FreakConfig%20t.me%2Frjsxrd # 7795ms
-vless://8910cbb3-33b1-4266-a243-ac780ac63394@pq-albania1.09vpn.com:80?path=%2Fvless%2F&security=&encryption=none&type=ws#%F0%9F%87%A6%F0%9F%87%B1%40FreakConfig%20t.me%2Frjsxrd # 9245ms
-trojan://de7d6444-a7a8-4b3a-bf26-bc6939bb0279@n1.chateditimage.com:443?allowInsecure=1#🫑96@oneclickvpnkeys%20t.me%2Frjsxrd # 7431ms
-trojan://de7d6444-a7a8-4b3a-bf26-bc6939bb0279@n1.chateditimage.com:443?allowInsecure=1#🫑96@oneclickvpnkeys%20t.me%2Frjsxrd # 6648ms
-vless://1007b7c2-2170-4ba4-a68d-ec31fbb4bf74@nnet.online:80?encryption=none&host=nnet.online&path=/vless-ntls&security=none&type=ws#🧢28@oneclickvpnkeys%20t.me%2Frjsxrd # 9958ms

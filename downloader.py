@@ -5,6 +5,8 @@ import re
 import time
 from datetime import datetime, timedelta
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from config import CHROME_UA
 
 
@@ -56,6 +58,21 @@ def clean_config_content(content: str) -> str:
     return '\n'.join(cleaned_lines)
 
 
+def _create_session_with_retries() -> requests.Session:
+    """Создает сессию requests с автоматическими повторениями при сбоях."""
+    session = requests.Session()
+    retry_strategy = Retry(
+        total=3,  # 3 попытки
+        backoff_factor=1,  # 1s, 2s, 4s задержка между попытками
+        status_forcelist=[429, 500, 502, 503, 504],  # Повторять на эти коды
+        allowed_methods=["GET", "HEAD"]
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    return session
+
+
 def download_file(url: str, filepath: str, max_age_hours: int = 24, force: bool = False) -> bool:
     """
     Скачивает файл по URL, если он устарел или не существует.
@@ -72,7 +89,8 @@ def download_file(url: str, filepath: str, max_age_hours: int = 24, force: bool 
     
     try:
         print(f"[...] Скачивание {os.path.basename(filepath)}...")
-        response = requests.get(url, timeout=30, headers={"User-Agent": CHROME_UA})
+        session = _create_session_with_retries()
+        response = session.get(url, timeout=30, headers={"User-Agent": CHROME_UA})
         response.raise_for_status()
         
         # Очищаем контент

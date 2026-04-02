@@ -178,14 +178,6 @@ def print_loading(text: str, duration: float = 0.5):
     print(f"\r{Colors.GREEN}✓{Colors.RESET} {text}")
 
 
-def type_writer(text: str, speed: float = 0.02):
-    """Эффект печатной машинки."""
-    for char in text:
-        print(char, end='', flush=True)
-        time.sleep(speed)
-    print()
-
-
 def clear_screen():
     """Очищает экран."""
     print("\033[2J\033[H", end='')

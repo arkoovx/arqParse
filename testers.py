@@ -43,11 +43,14 @@ def test_xray_configs(
     
     # Тестируем конфиги
     # test_batch возвращает List[Tuple[str, bool, float]] - (url, success, latency_ms)
+    # Передаём max_ping_ms чтобы он считал only конфигов с подходящим пингом
     results = xray_test_batch(
         urls=configs,
         xray_path=xray_path,
-        concurrency=concurrency or 100,
-        timeout=10.0
+        concurrency=concurrency or 150,  # Оптимизировано для скорости
+        timeout=6.0,  # Оптимизировано - меньше timeout, быстрее
+        required_count=required_count,
+        max_ping_ms=max_ping_ms  # Передаём макс пинг для фильтрации при поиске
     )
     
     # Фильтруем только рабочие конфиги с подходящим пингом

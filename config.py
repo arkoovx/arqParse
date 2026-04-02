@@ -34,9 +34,10 @@ TASKS = [
             os.path.join(RAW_CONFIGS_DIR, "25.txt"),
         ],
         "out_file": os.path.join(RESULTS_DIR, "top_vpn.txt"),
+        "profile_title": "ArcVPN Free | Обычный",
         "type": "xray",
         "target_url": "https://google.com",
-        "max_ping_ms": 15000,
+        "max_ping_ms": 9000,
         "required_count": 10
     },
     {
@@ -48,9 +49,10 @@ TASKS = [
             os.path.join(RAW_CONFIGS_DIR, "bypass-all.txt"),
         ],
         "out_file": os.path.join(RESULTS_DIR, "top_bypass.txt"),
+        "profile_title": "ArcVPN Free | Обход",
         "type": "xray",
-        "target_url": "https://youtube.com",
-        "max_ping_ms": 15000,
+        "target_url": "https://google.com",
+        "max_ping_ms": 12000,
         "required_count": 10
     },
     {
@@ -62,9 +64,10 @@ TASKS = [
             os.path.join(RAW_CONFIGS_DIR, "MTProto.txt"),
         ],
         "out_file": os.path.join(RESULTS_DIR, "top_MTProto.txt"),
+        "profile_title": "ArcVPN Free | Telegram",
         "type": "mtproto",
         "target_url": "https://core.telegram.org",
-        "max_ping_ms": 500,
+        "max_ping_ms": 200,
         "required_count": 10
     }
 ]

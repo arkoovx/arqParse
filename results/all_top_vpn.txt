@@ -1,4 +1,4 @@
-#profile-title: ArcVPN Free | Обход
+#profile-title: ArcVPN Free | Все
 #profile-update-interval: 48
 #support-url: https://t.me/arcparse
 
