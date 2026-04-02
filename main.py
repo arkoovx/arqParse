@@ -397,6 +397,8 @@ def format_config_name(url: str, index: int, config_type: str = "Base VPN", ping
 def save_results(filepath: str, results: list, profile_title: str = "ArqParse results", config_type: str = "Base VPN", no_ui: bool = False):
     """Сохраняет результаты в файл.
     
+    Если результатов нет, файл не перезаписывается (сохраняет старые данные).
+    
     Args:
         filepath: путь для сохранения
         results: список кортежей (url, ping_ms)
@@ -404,6 +406,13 @@ def save_results(filepath: str, results: list, profile_title: str = "ArqParse re
         config_type: тип конфига ("Base VPN", "Bypass VPN", "Telegram MTProto")
         no_ui: отключить вывод
     """
+    filename = os.path.basename(filepath)
+    
+    # Если результатов нет - не перезаписываем файл, оставляем старые данные
+    if not results:
+        print_info(f"Нет рабочих конфигов для {filename} - сохраняем старые данные")
+        return
+    
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     
     with open(filepath, 'w', encoding='utf-8') as f:
@@ -417,11 +426,7 @@ def save_results(filepath: str, results: list, profile_title: str = "ArqParse re
             formatted_url = format_config_name(url, index, config_type, ping_ms)
             f.write(f"{formatted_url}\n")
     
-    filename = os.path.basename(filepath)
-    if results:
-        print_success(f"Сохранено {len(results)} конфигов в {filename}")
-    else:
-        print_info(f"Нет рабочих конфигов для {filename}")
+    print_success(f"Сохранено {len(results)} конфигов в {filename}")
 
 
 if __name__ == "__main__":
