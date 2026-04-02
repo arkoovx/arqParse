@@ -270,13 +270,23 @@ def prompt_and_push_to_github():
                 print_info("Коммит создан")
                 
                 # Делаем push
-                subprocess.run(
+                push_result = subprocess.run(
                     ["git", "push"],
-                    check=True,
-                    capture_output=True
+                    capture_output=True,
+                    text=True,
+                    check=False
                 )
                 
-                print_success("Результаты успешно обновлены на GitHub!")
+                if push_result.returncode == 0:
+                    print_success("Результаты успешно обновлены на GitHub!")
+                else:
+                    error_msg = push_result.stderr or push_result.stdout
+                    print_error(f"Ошибка при отправке на GitHub:")
+                    print_error(f"  {error_msg.strip()}")
+                    print_warning("Коммит создан локально, но не отправлен на GitHub")
+                    print_info("Вы можете повторить попытку позже с помощью:")
+                    print_info(f"  cd \"{project_dir}\" && git push")
+                
                 os.chdir(original_dir)
                 
             except subprocess.CalledProcessError as e:
