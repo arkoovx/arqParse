@@ -9,6 +9,8 @@ import sys
 import signal
 import argparse
 import time
+import subprocess
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -188,6 +190,9 @@ def main(force_download: bool = False, skip_xray: bool = False, proxy_url: str =
     time.sleep(0.5)
     print_summary(all_results)
     
+    # Запрос об обновлении репозитория
+    prompt_and_push_to_github()
+    
     # Финальное сообщение
     print(f"\n{Colors.GREEN}{Colors.BOLD}")
     print("╔══════════════════════════════════════════════════════════╗")
@@ -198,6 +203,97 @@ def main(force_download: bool = False, skip_xray: bool = False, proxy_url: str =
     print("║                                                          ║")
     print("╚══════════════════════════════════════════════════════════╝")
     print(f"{Colors.RESET}")
+
+
+def prompt_and_push_to_github():
+    """Запрашивает пользователя об обновлении результатов на GitHub.
+    При ответе 'y' - обновляет, при 'n' - оставляет только локально."""
+    
+    print()
+    print_header("📤 ОБНОВЛЕНИЕ РЕПОЗИТОРИЯ")
+    
+    while True:
+        response = input(
+            f"{Colors.CYAN}Обновить результаты в репозитории GitHub? "
+            f"({Colors.GREEN}y{Colors.RESET}/{Colors.RED}n{Colors.RESET}): {Colors.RESET}"
+        ).strip().lower()
+        
+        if response == 'y':
+            try:
+                print_info("Обновление репозитория...")
+                
+                # Изменяемся в директорию проекта
+                original_dir = os.getcwd()
+                project_dir = os.path.dirname(os.path.abspath(__file__))
+                os.chdir(project_dir)
+                
+                # Проверяем, что это git репозиторий
+                # Добавляем файлы результатов
+                result_files = []
+                for file in ["top_vpn.txt", "top_bypass.txt", "top_MTProto.txt", "all_top_vpn.txt"]:
+                    file_path = os.path.join(RESULTS_DIR, file)
+                    if os.path.exists(file_path):
+                        result_files.append(os.path.join(RESULTS_DIR, file))
+                
+                if not result_files:
+                    print_warning("Не найдены файлы результатов для обновления")
+                    os.chdir(original_dir)
+                    return
+                
+                # Добавляем файлы
+                for file_path in result_files:
+                    subprocess.run(["git", "add", file_path], check=True, capture_output=True)
+                
+                print_info(f"Добавлено {len(result_files)} файлов результатов")
+                
+                # Проверяем, есть ли изменения
+                status_result = subprocess.run(
+                    ["git", "status", "--porcelain"],
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+                
+                if not status_result.stdout.strip():
+                    print_warning("Нет изменений для коммита")
+                    os.chdir(original_dir)
+                    return
+                
+                # Делаем коммит
+                commit_msg = f"Update VPN configs results - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                subprocess.run(
+                    ["git", "commit", "-m", commit_msg],
+                    check=True,
+                    capture_output=True
+                )
+                
+                print_info("Коммит создан")
+                
+                # Делаем push
+                subprocess.run(
+                    ["git", "push"],
+                    check=True,
+                    capture_output=True
+                )
+                
+                print_success("Результаты успешно обновлены на GitHub!")
+                os.chdir(original_dir)
+                
+            except subprocess.CalledProcessError as e:
+                print_error(f"Ошибка при обновлении репозитория: {e}")
+                os.chdir(original_dir)
+            except Exception as e:
+                print_error(f"Ошибка: {e}")
+                os.chdir(original_dir)
+            
+            break
+        
+        elif response == 'n':
+            print_info("Результаты оставлены только локально")
+            break
+        
+        else:
+            print_warning("Пожалуйста, ответьте 'y' или 'n'")
 
 
 def merge_vpn_configs():
