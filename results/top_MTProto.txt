@@ -2,13 +2,13 @@
 #profile-update-interval: 48
 #support-url: https://t.me/arqhub
 
-https://t.me/proxy?server=65.108.52.231&port=443&secret=00000000000000000000000000000000
-https://t.me/proxy?server=5.79.68.181&port=80&secret=7
-https://t.me/proxy?server=188.166.49.247&port=443&secret=d1d069d2fb0fca4d28cd0e53bda39bbb
-https://t.me/proxy?server=91.99.163.152&port=443&secret=7gD_AA_wD_9VVf____VtZWRpYS5zdGV
-https://t.me/proxy?server=91.98.122.149&port=22&secret=EECAE5E5E0E4700000000EEEAAAAAAAAAA7738773777367735773477337732773177772E6972
-https://t.me/proxy?server=162.55.153.173&port=80&secret=ee1603010200010001fc030386e24c3add646e2e79656b74616e65742e636f6d646c2e676f6f676c652e636f6d666172616b61762e636f6d160301020001000100000000000000000000000000000000
-https://t.me/proxy?server=46.224.148.217&port=443&secret=ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d
 https://t.me/proxy?server=188.245.63.232&port=443&secret=1320PuNyHw_LQKT_Y7XNJw
+https://t.me/proxy?server=78.46.217.208&port=8443&secret=fgScoaLSXQYtLCM8VHoNngfgScoaLSXQYtLCM8VHoNngfgScoaLSXQYtLCM8VHoNngfgScoaLSXQYtLCM8VHoNngfgScoaLSXQYtLCM8VHoNngfgScoaLSXQYtLCM8VHoNngfgScoaLSXQYtLCM8VHoNng==
+https://t.me/proxy?server=91.99.150.26&port=443&secret=7gAA8A8Pd1VV____9QBuLmltZWRpYS5zdGV
+https://t.me/proxy?server=157.180.32.157&port=443&secret=EEABAzJJlbB8AwOG6Ibn8QRueWVrdGFuZXQuY29tZmFyYWt
+https://t.me/proxy?server=91.98.169.241&port=443&secret=EERig
+https://t.me/proxy?server=162.55.153.173&port=80&secret=ee1603010200010001fc030386e24c3add646e2e79656b74616e65742e636f6d646c2e676f6f676c652e636f6d666172616b61762e636f6d160301020001000100000000000000000000000000000000
+https://t.me/proxy?server=91.99.205.245&port=443&secret=eed77db43ee3721f0fcb40a4ff63b5cd276d656469612e737465616d706f77657265642e636f6d
 https://t.me/proxy?server=185.143.233.98&port=2086&secret=e9e437c2-1ee5-4f0d-ae09-4bfafc835e47
+https://t.me/proxy?server=46.224.148.217&port=443&secret=ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d
 https://t.me/proxy?server=91.99.204.4&port=110&secret=7gAA8A8Pd1VV____9QBuLmltZWRpYS5zdGV
