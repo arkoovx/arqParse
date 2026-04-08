@@ -39,56 +39,47 @@ PROGRESS_F = "#8b5cf6"
 BORDER     = "#262626"
 
 
-class _Btn(tk.Frame):
-    """Кастомная кнопка без артефактов ttk."""
+class _Btn(tk.Label):
+    """Кнопка на базе Label — без артефактов ttk, корректный hover."""
     def __init__(self, master, text="", bg_color=BG_CARD, fg_color=TEXT,
                  font=("Segoe UI", 11), active_bg=BG_HOVER, border=False,
                  command=None, bold=False, pady=8, padx=14, **kw):
-        bd = 0 if not border else 1
-        super().__init__(master, bg=bg_color, bd=bd, highlightthickness=0, **kw)
-        self._bg = bg_color
-        self._active_bg = active_bg
-        self._command = command
-        self._disabled = False
-
-        self.label = tk.Label(self, text=text, bg=bg_color, fg=fg_color,
-                              font=font, cursor="hand2")
+        fnt = font
         if bold:
-            self.label.config(font=(font[0], font[1], "bold"))
-        self.label.pack(fill=tk.BOTH, expand=True, padx=padx, pady=pady)
-
+            fnt = (font[0], font[1], "bold")
+        super().__init__(master, text=text, bg=bg_color, fg=fg_color,
+                         font=fnt, cursor="hand2", **kw)
+        self._bg = bg_color
+        self._active = active_bg
+        self._fg = fg_color
+        self._cmd = command
+        self._disabled = False
+        self.bind("<Enter>", lambda e: self._set(True))
+        self.bind("<Leave>", lambda e: self._set(False))
         self.bind("<Button-1>", self._click)
-        self.label.bind("<Button-1>", self._click)
-        self.bind("<Enter>", self._enter)
-        self.label.bind("<Enter>", self._enter)
-        self.bind("<Leave>", self._leave)
-        self.label.bind("<Leave>", self._leave)
+        self.configure(padx=padx, pady=pady)
+
+    def _set(self, on):
+        if self._disabled:
+            return
+        if on:
+            self.config(bg=self._active)
+        else:
+            self.config(bg=self._bg)
 
     def _click(self, e):
-        if not self._disabled and self._command:
-            self._command()
-
-    def _enter(self, e):
-        if not self._disabled:
-            self.config(bg=self._active_bg)
-            self.label.config(bg=self._active_bg)
-
-    def _leave(self, e):
-        if not self._disabled:
-            self.config(bg=self._bg)
-            self.label.config(bg=self._bg)
+        if not self._disabled and self._cmd:
+            self._cmd()
 
     def config(self, **kw):
         if "state" in kw:
             st = kw.pop("state")
             self._disabled = (st == tk.DISABLED)
             if self._disabled:
-                self.label.config(fg=TEXT_MUTED, cursor="")
+                self.config(fg=TEXT_MUTED, cursor="")
             else:
-                self.label.config(cursor="hand2")
+                self.config(cursor="hand2")
         super().config(**kw)
-        if "bg" in kw:
-            self._bg = kw["bg"]
 
 
 class ArcParseGUI:
@@ -196,16 +187,16 @@ class ArcParseGUI:
         """Обновляет текст кнопки при переключении Вход/Регистрация."""
         if not self.auth_btn._disabled:
             if self.auth_mode.get() == "register":
-                self.auth_btn.label.config(text="Зарегистрироваться")
+                self.auth_btn.config(text="Зарегистрироваться")
             else:
-                self.auth_btn.label.config(text="Войти")
+                self.auth_btn.config(text="Войти")
 
     def _animate_loading(self):
         """Анимация загрузки — пульсирующие точки."""
         if not hasattr(self, '_auth_loading_text'):
             return
         dots = "." * (self._auth_loading_dots % 4)
-        self.auth_btn.label.config(
+        self.auth_btn.config(
             text=f"{self._auth_loading_text}{dots}",
             fg=TEXT_DIM
         )
@@ -266,7 +257,7 @@ class ArcParseGUI:
         self._stop_loading_animation()
         self.auth_btn._disabled = False
         mode = self.auth_mode.get()
-        self.auth_btn.label.config(text="Войти" if mode == "login" else "Зарегистрироваться",
+        self.auth_btn.config(text="Войти" if mode == "login" else "Зарегистрироваться",
                                    fg="#fff")
         messagebox.showerror("Ошибка", msg)
 
@@ -398,7 +389,7 @@ class ArcParseGUI:
                                pady=7)
         self.skip_btn_w.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 3))
         self.skip_btn_w._disabled = True
-        self.skip_btn_w.label.config(fg=TEXT_MUTED)
+        self.skip_btn_w.config(fg=TEXT_MUTED)
 
         self.stop_btn_w = _Btn(ctrl, text="⏹  Остановить", bg_color="#1c1917",
                                fg_color=RED, font=("Segoe UI", 10, "bold"),
@@ -406,7 +397,7 @@ class ArcParseGUI:
                                pady=7)
         self.stop_btn_w.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(3, 0))
         self.stop_btn_w._disabled = True
-        self.stop_btn_w.label.config(fg=TEXT_MUTED)
+        self.stop_btn_w.config(fg=TEXT_MUTED)
 
         # ─── Прогресс ──────────────────────────────────────────
         prog = tk.Frame(self.root, bg=BG)
@@ -579,10 +570,10 @@ class ArcParseGUI:
         self.advanced_open = not self.advanced_open
         if self.advanced_open:
             self.adv_container.pack(fill=tk.X, after=self.adv_btn)
-            self.adv_btn.label.config(text="▴  Скрыть настройки")
+            self.adv_btn.config(text="▴  Скрыть настройки")
         else:
             self.adv_container.pack_forget()
-            self.adv_btn.label.config(text="▾  Дополнительные настройки")
+            self.adv_btn.config(text="▾  Дополнительные настройки")
 
     # ─── Лог ────────────────────────────────────────────────────
     def log(self, message, tag="info"):
@@ -598,18 +589,18 @@ class ArcParseGUI:
     def _enable_control_buttons(self, running):
         if running:
             self.stop_btn_w._disabled = False
-            self.stop_btn_w.label.config(fg=RED)
+            self.stop_btn_w.config(fg=RED)
             self.skip_btn_w._disabled = False
-            self.skip_btn_w.label.config(fg=YELLOW)
+            self.skip_btn_w.config(fg=YELLOW)
             self.start_btn._disabled = True
-            self.start_btn.label.config(fg=TEXT_DIM)
+            self.start_btn.config(fg=TEXT_DIM)
         else:
             self.stop_btn_w._disabled = True
-            self.stop_btn_w.label.config(fg=TEXT_MUTED)
+            self.stop_btn_w.config(fg=TEXT_MUTED)
             self.skip_btn_w._disabled = True
-            self.skip_btn_w.label.config(fg=TEXT_MUTED)
+            self.skip_btn_w.config(fg=TEXT_MUTED)
             self.start_btn._disabled = False
-            self.start_btn.label.config(fg="#fff")
+            self.start_btn.config(fg="#fff")
 
     # ─── Скачивание ─────────────────────────────────────────────
     def start_download(self):
