@@ -287,7 +287,9 @@ def test_mtproto_configs(
     log_func: Callable = None,
     progress_func: Callable = None,
     out_file: str = None,
-    profile_title: str = None
+    profile_title: str = None,
+    stop_flag=None,
+    skip_flag=None,
 ) -> Tuple[int, int, int]:
     """
     Асинхронно тестирует список MTProto конфигов с настоящим Obfuscated2 handshake.
@@ -303,6 +305,8 @@ def test_mtproto_configs(
         progress_func  : Функция прогресса (current: int, total: int) → None
         out_file       : Путь для сохранения результатов (GUI-режим)
         profile_title  : Заголовок профиля в файле результатов
+        stop_flag      : threading.Event для остановки извне
+        skip_flag      : threading.Event для пропуска (не используется, для совместимости)
 
     Returns:
         GUI-режим  (out_file задан):  (working: int, passed: int, failed: int)
@@ -328,7 +332,13 @@ def test_mtproto_configs(
     total = len(configs)
     processed = [0]
     lock = threading.Lock()
-    stop_flag = threading.Event()
+    local_stop = threading.Event()
+
+    # Объединяем внешний и внутренний stop_flag
+    def _check_stop():
+        if stop_flag is not None and stop_flag.is_set():
+            return True
+        return local_stop.is_set()
 
     _log(
         f"Тестирование {total} MTProto прокси "
@@ -343,7 +353,7 @@ def test_mtproto_configs(
         }
 
         for future in as_completed(future_to_url):
-            if stop_flag.is_set():
+            if _check_stop():
                 break
 
             try:
@@ -366,7 +376,7 @@ def test_mtproto_configs(
                         "success"
                     )
                     if len(results) >= required_count:
-                        stop_flag.set()
+                        local_stop.set()
                 else:
                     if ping_ms == float('inf'):
                         _log("✗ недоступен", "warning")
@@ -376,7 +386,7 @@ def test_mtproto_configs(
                         _log("✗ не ответил на handshake", "warning")
 
         # Если найдено нужное количество — отменяем оставшиеся задачи
-        if stop_flag.is_set():
+        if _check_stop():
             executor.shutdown(wait=False, cancel_futures=True)
 
     # Сортируем по пингу: лучшие первые
