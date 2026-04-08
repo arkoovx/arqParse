@@ -1,0 +1,56 @@
+{
+  "tasks": [
+    {
+      "name": "Base VPN",
+      "type": "xray",
+      "urls": [
+        "https://raw.githubusercontent.com/whoahaow/rjsxrd/refs/heads/main/githubmirror/default/22.txt",
+        "https://raw.githubusercontent.com/whoahaow/rjsxrd/refs/heads/main/githubmirror/default/23.txt",
+        "https://raw.githubusercontent.com/whoahaow/rjsxrd/refs/heads/main/githubmirror/default/24.txt",
+        "https://raw.githubusercontent.com/whoahaow/rjsxrd/refs/heads/main/githubmirror/default/25.txt"
+      ],
+      "raw_files": [
+        "/home/arkoovx/Документы/Обход-БС/arqParse/rawconfigs/22.txt",
+        "/home/arkoovx/Документы/Обход-БС/arqParse/rawconfigs/23.txt",
+        "/home/arkoovx/Документы/Обход-БС/arqParse/rawconfigs/24.txt",
+        "/home/arkoovx/Документы/Обход-БС/arqParse/rawconfigs/25.txt"
+      ],
+      "target_url": "https://google.com",
+      "max_ping_ms": 9000,
+      "required_count": 10,
+      "profile_title": "arqVPN Free | Обычный",
+      "out_file": "/home/arkoovx/Документы/Обход-БС/arqParse/results/top_base_vpn.txt"
+    },
+    {
+      "name": "Bypass VPN",
+      "type": "xray",
+      "urls": [
+        "https://raw.githubusercontent.com/whoahaow/rjsxrd/refs/heads/main/githubmirror/bypass/bypass-all.txt"
+      ],
+      "raw_files": [
+        "/home/arkoovx/Документы/Обход-БС/arqParse/rawconfigs/bypass-all.txt"
+      ],
+      "target_url": "https://google.com",
+      "max_ping_ms": 12000,
+      "required_count": 10,
+      "profile_title": "arqVPN Free | Обход",
+      "out_file": "/home/arkoovx/Документы/Обход-БС/arqParse/results/top_bypass_vpn.txt"
+    },
+    {
+      "name": "Telegram MTProto",
+      "type": "mtproto",
+      "urls": [
+        "https://raw.githubusercontent.com/SoliSpirit/mtproto/master/all_proxies.txt"
+      ],
+      "raw_files": [
+        "/home/arkoovx/Документы/Обход-БС/arqParse/rawconfigs/all_proxies.txt"
+      ],
+      "target_url": "https://core.telegram.org",
+      "max_ping_ms": 4000,
+      "required_count": 10,
+      "profile_title": "arqVPN Free | Telegram",
+      "out_file": "/home/arkoovx/Документы/Обход-БС/arqParse/results/top_telegram_mtproto.txt"
+    }
+  ],
+  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+}

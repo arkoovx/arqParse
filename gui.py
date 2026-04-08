@@ -1178,7 +1178,7 @@ class ArcParseGUI:
                 self.log("Файл all_top_vpn.txt не найден — запустите тест VPN", "warning")
 
         if mt_task:
-            mt_file = os.path.join(RESULTS_DIR, "top_MTProto.txt")
+            mt_file = os.path.join(RESULTS_DIR, "top_telegram_mtproto.txt")
             if os.path.exists(mt_file):
                 with open(mt_file, 'r', encoding='utf-8') as f:
                     mt_content = f.read().strip()
@@ -1241,14 +1241,14 @@ class ArcParseGUI:
                 self.log("MTProto конфиги не найдены", "warning")
                 return
             self.log(f"Найдено MTProto: {len(configs)}", "info")
-            _, passed, _ = test_mtproto_configs_and_save(
+            working, passed, failed = test_mtproto_configs_and_save(
                 configs=configs, max_ping_ms=task['max_ping_ms'],
                 required_count=task['required_count'], out_file=task['out_file'],
                 profile_title=task['profile_title'], log_func=self.log,
                 progress_func=self._progress_callback,
                 stop_flag=self.stop_event, skip_flag=self.skip_event,
             )
-            self.log(f"Результат MTProto: ✓ {passed} рабочих", "success")
+            self.log(f"Результат MTProto: ✓ {passed} ({working} проверено, {failed} отказов)", "success")
 
         self.stop_event = None
         self.skip_event = None
@@ -1280,8 +1280,8 @@ class ArcParseGUI:
             messagebox.showerror("Ошибка", str(e), parent=self.root)
 
     def merge_vpn_configs(self):
-        tv = os.path.join(RESULTS_DIR, "top_vpn.txt")
-        tb = os.path.join(RESULTS_DIR, "top_bypass.txt")
+        tv = os.path.join(RESULTS_DIR, "top_base_vpn.txt")
+        tb = os.path.join(RESULTS_DIR, "top_bypass_vpn.txt")
         av = os.path.join(RESULTS_DIR, "all_top_vpn.txt")
         try:
             ac = []
@@ -1335,7 +1335,7 @@ class ArcParseGUI:
             self.log("Обновление репозитория...", "title")
             pd = os.path.dirname(os.path.abspath(__file__))
             rfs = []
-            for fn in ["top_vpn.txt", "top_bypass.txt", "top_MTProto.txt", "all_top_vpn.txt"]:
+            for fn in ["top_base_vpn.txt", "top_bypass_vpn.txt", "top_telegram_mtproto.txt", "all_top_vpn.txt"]:
                 fp = os.path.join(RESULTS_DIR, fn)
                 if os.path.exists(fp):
                     rfs.append(fp)

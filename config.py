@@ -33,7 +33,7 @@ TASKS = [
             os.path.join(RAW_CONFIGS_DIR, "24.txt"),
             os.path.join(RAW_CONFIGS_DIR, "25.txt"),
         ],
-        "out_file": os.path.join(RESULTS_DIR, "top_vpn.txt"),
+        "out_file": os.path.join(RESULTS_DIR, "top_base_vpn.txt"),
         "profile_title": "arqVPN Free | Обычный",
         "type": "xray",
         "target_url": "https://google.com",
@@ -48,7 +48,7 @@ TASKS = [
         "raw_files": [
             os.path.join(RAW_CONFIGS_DIR, "bypass-all.txt"),
         ],
-        "out_file": os.path.join(RESULTS_DIR, "top_bypass.txt"),
+        "out_file": os.path.join(RESULTS_DIR, "top_bypass_vpn.txt"),
         "profile_title": "arqVPN Free | Обход",
         "type": "xray",
         "target_url": "https://google.com",
@@ -63,7 +63,7 @@ TASKS = [
         "raw_files": [
             os.path.join(RAW_CONFIGS_DIR, "MTProto.txt"),
         ],
-        "out_file": os.path.join(RESULTS_DIR, "top_MTProto.txt"),
+        "out_file": os.path.join(RESULTS_DIR, "top_telegram_mtproto.txt"),
         "profile_title": "arqVPN Free | Telegram",
         "type": "mtproto",
         "target_url": "https://core.telegram.org",
