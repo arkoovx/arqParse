@@ -11,7 +11,10 @@
       "Bash(bash *)",
       "Bash(chmod *)",
       "Bash(venv/bin/pip3 *)",
-      "Bash(venv/bin/python3 *)"
+      "Bash(venv/bin/python3 *)",
+      "Bash(timeout *)",
+      "Bash(sed *)",
+      "Bash(rm *)"
     ]
   },
   "$version": 3

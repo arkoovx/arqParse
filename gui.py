@@ -1,6 +1,6 @@
 """
 Современный GUI для arqParse.
-Чёрная тема, фиолетовые акценты.
+Чёрная тема, фиолетовые акценты. Навигация между страницами.
 """
 
 import tkinter as tk
@@ -12,7 +12,8 @@ import subprocess
 import webbrowser
 from datetime import datetime
 
-from config import TASKS, RESULTS_DIR
+from config import RESULTS_DIR
+from settings_manager import get_tasks, get_user_agent, load_settings, save_settings
 from downloader import download_all_tasks
 from parser import read_configs_from_file, read_mtproto_from_file
 from testers import test_xray_configs
@@ -97,33 +98,52 @@ class ArcParseGUI:
         self.stop_event = None
         self.skip_event = None
 
+        # ─── Настройки (загружаются динамически) ───────────────
+        self._settings = load_settings()
+        self._tasks = get_tasks()
+
+        # ─── Навигация ─────────────────────────────────────────
+        self._current_page = None
+        self._pages = {}
+
         # ─── Проверяем сессию ──────────────────────────────────
         if auth_module.is_logged_in():
             self._show_main_app()
         else:
             self._show_login_screen()
 
+    # ════════════════════════ НАВИГАЦИЯ ════════════════════════
+    def _show_page(self, page_name):
+        """Скрыть текущую страницу и показать новую."""
+        if self._current_page and self._current_page in self._pages:
+            self._pages[self._current_page].pack_forget()
+        self._current_page = page_name
+        if page_name in self._pages:
+            self._pages[page_name].pack(fill=tk.BOTH, expand=True)
+
+    def _go_home(self):
+        self._show_page("main")
+
+    def _go_settings(self):
+        self._show_page("settings")
+
     # ════════════════════════ ЭКРАН ВХОДА ══════════════════════
     def _show_login_screen(self):
         self.login_frame = tk.Frame(self.root, bg=BG)
         self.login_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Центрируем контент
         center = tk.Frame(self.login_frame, bg=BG)
         center.pack(fill=tk.BOTH, expand=True, padx=32, pady=50)
 
-        # Логотип
         tk.Label(center, text="arqParse", bg=BG, fg=TEXT,
                  font=("Segoe UI", 28, "bold")).pack(pady=(0, 2))
         tk.Label(center, text="Тестирование VPN конфигов", bg=BG,
                  fg=TEXT_DIM, font=("Segoe UI", 11)).pack()
 
-        # Карточка
         card = tk.Frame(center, bg=BG_CARD, highlightthickness=1,
                         highlightbackground=BORDER)
         card.pack(fill=tk.X, pady=(36, 0), ipady=4)
 
-        # Режим (переключатель Вход / Регистрация)
         mode_row = tk.Frame(card, bg=BG_CARD)
         mode_row.pack(fill=tk.X, padx=16, pady=(16, 8))
 
@@ -140,14 +160,12 @@ class ArcParseGUI:
                        activeforeground=TEXT, highlightthickness=0, border=0,
                        command=self._update_auth_btn_text).pack(side=tk.LEFT, expand=True)
 
-        # Поля
         fields = tk.Frame(card, bg=BG_CARD)
         fields.pack(fill=tk.X, padx=16)
 
         self._add_field(fields, "Логин", show=False)
         self._add_field(fields, "Пароль", show=True)
 
-        # Кнопка
         btn_pad = tk.Frame(card, bg=BG_CARD)
         btn_pad.pack(fill=tk.X, padx=16, pady=(14, 16))
 
@@ -156,11 +174,9 @@ class ArcParseGUI:
                              command=self._do_auth, pady=10)
         self.auth_btn.pack(fill=tk.X)
 
-        # Enter
         self.login_pass.bind("<Return>", lambda e: self._do_auth())
         self.login_user.bind("<Return>", lambda e: self.login_pass.focus())
 
-        # by arq
         link_row = tk.Frame(center, bg=BG)
         link_row.pack(pady=(20, 0))
         tk.Label(link_row, text="by ", bg=BG, fg=TEXT_DIM,
@@ -184,7 +200,6 @@ class ArcParseGUI:
             self.login_user = entry
 
     def _update_auth_btn_text(self):
-        """Обновляет текст кнопки при переключении Вход/Регистрация."""
         if not self.auth_btn._disabled:
             if self.auth_mode.get() == "register":
                 self.auth_btn.config(text="Зарегистрироваться")
@@ -192,7 +207,6 @@ class ArcParseGUI:
                 self.auth_btn.config(text="Войти")
 
     def _animate_loading(self):
-        """Анимация загрузки — пульсирующие точки."""
         if not hasattr(self, '_auth_loading_text'):
             return
         dots = "." * (self._auth_loading_dots % 4)
@@ -205,7 +219,6 @@ class ArcParseGUI:
             self.root.after(500, self._animate_loading)
 
     def _stop_loading_animation(self):
-        """Остановить анимацию загрузки."""
         if hasattr(self, '_auth_loading_text'):
             delattr(self, '_auth_loading_text')
 
@@ -221,7 +234,6 @@ class ArcParseGUI:
             messagebox.showerror("Ошибка", "Пароль минимум 6 символов")
             return
 
-        # Проверка доступности сервера
         self.auth_btn._disabled = True
         self._auth_loading_dots = 0
         self._auth_loading_text = "Регистрация" if self.auth_mode.get() == "register" else "Подключение"
@@ -230,14 +242,12 @@ class ArcParseGUI:
 
         def auth_thread():
             try:
-                # Шаг 1 — проверяем что сервер жив
                 if not auth_module.check_server(server):
                     self.root.after(0, lambda: self._show_auth_error(
                         "Сервер недоступен. Проверьте подключение и попробуйте позже."
                     ))
                     return
 
-                # Шаг 2 — авторизация
                 if self.auth_mode.get() == "register":
                     result = auth_module.register(username, password, server)
                 else:
@@ -271,8 +281,24 @@ class ArcParseGUI:
         session = auth_module.get_session()
         self.current_user = session["username"] if session else None
 
+        # ─── Создаём страницу "Главная" ────────────────────────
+        main_frame = tk.Frame(self.root, bg=BG)
+        self._build_main_page(main_frame)
+        self._pages["main"] = main_frame
+
+        # ─── Создаём страницу "Настройки" ──────────────────────
+        settings_frame = tk.Frame(self.root, bg=BG)
+        self._build_settings_page(settings_frame)
+        self._pages["settings"] = settings_frame
+
+        # ─── Показываем главную ────────────────────────────────
+        self._show_page("main")
+
+    def _build_main_page(self, parent):
+        """Строит содержимое главной страницы."""
+
         # ─── Верх ──────────────────────────────────────────────
-        self.top_frame = tk.Frame(self.root, bg=BG)
+        self.top_frame = tk.Frame(parent, bg=BG)
         self.top_frame.pack(fill=tk.X, padx=24, pady=(16, 8))
 
         tk.Label(self.top_frame, text="arqParse", bg=BG, fg=TEXT,
@@ -284,6 +310,10 @@ class ArcParseGUI:
         if self.current_user:
             tk.Label(status_row, text=f"👤  {self.current_user}", bg=BG,
                      fg=TEXT_DIM, font=("Segoe UI", 10)).pack(side=tk.LEFT, padx=(8, 0))
+
+            _Btn(status_row, text="⚙  Настройки", bg_color=BG, fg_color=TEXT_DIM,
+                 font=("Segoe UI", 9), active_bg=BG_HOVER,
+                 command=self._go_settings, padx=6, pady=4).pack(side=tk.RIGHT, padx=(0, 4))
 
             _Btn(status_row, text="📋  Ссылка", bg_color=BG, fg_color=ACCENT_LG,
                  font=("Segoe UI", 9), active_bg=BG_HOVER,
@@ -328,10 +358,14 @@ class ArcParseGUI:
              font=("Segoe UI", 9), active_bg=BG_HOVER,
              command=self._copy_sub_url, pady=3, padx=8).pack(side=tk.LEFT)
 
-        self._sub_url_visible = False  # Состояние видимости ссылки
+        self._sub_url_visible = False
+
+        # ─── Контейнер для основного содержимого ───────────────
+        self._main_content = tk.Frame(parent, bg=BG)
+        self._main_content.pack(fill=tk.BOTH, expand=True)
 
         # ─── Главная кнопка ────────────────────────────────────
-        self.start_btn = _Btn(self.root, text="⚡  Начать тест", bg_color=ACCENT,
+        self.start_btn = _Btn(self._main_content, text="⚡  Начать тест", bg_color=ACCENT,
                               fg_color="#fff", font=("Segoe UI", 15, "bold"),
                               active_bg=ACCENT_DK, command=self.start_full_test,
                               pady=14)
@@ -341,13 +375,13 @@ class ArcParseGUI:
         self.advanced_open = False
         self.check_vars = {}
 
-        self.adv_btn = _Btn(self.root, text="▾  Дополнительные настройки",
+        self.adv_btn = _Btn(self._main_content, text="▾  Дополнительные настройки",
                             bg_color=BG_CARD, fg_color=TEXT_DIM,
                             font=("Segoe UI", 10), active_bg=BG_HOVER,
                             command=self.toggle_advanced, pady=8)
         self.adv_btn.pack(fill=tk.X, padx=24, pady=(4, 0))
 
-        self.adv_container = tk.Frame(self.root, bg=BG)
+        self.adv_container = tk.Frame(self._main_content, bg=BG)
 
         card = tk.Frame(self.adv_container, bg=BG_CARD,
                         highlightthickness=1, highlightbackground=BORDER)
@@ -356,9 +390,12 @@ class ArcParseGUI:
         tk.Label(card, text="Выбрать задачи", bg=BG_CARD, fg=TEXT_DIM,
                  font=("Segoe UI", 10)).pack(anchor=tk.W, padx=14, pady=(10, 4))
 
-        for task in TASKS:
-            row = tk.Frame(card, bg=BG_CARD)
-            row.pack(fill=tk.X, padx=14, pady=2)
+        self._checkbox_container = tk.Frame(card, bg=BG_CARD)
+        self._checkbox_container.pack(fill=tk.X, padx=14, pady=2)
+
+        for task in self._tasks:
+            row = tk.Frame(self._checkbox_container, bg=BG_CARD)
+            row.pack(fill=tk.X, pady=2)
             var = tk.BooleanVar(value=True)
             self.check_vars[task['name']] = {'var': var, 'task': task}
             cb = tk.Checkbutton(row, text=task['name'], variable=var,
@@ -380,7 +417,7 @@ class ArcParseGUI:
                                                      expand=True, padx=(3, 0))
 
         # ─── Управление ────────────────────────────────────────
-        ctrl = tk.Frame(self.root, bg=BG)
+        ctrl = tk.Frame(self._main_content, bg=BG)
         ctrl.pack(fill=tk.X, padx=24, pady=(4, 0))
 
         self.skip_btn_w = _Btn(ctrl, text="⏭  Пропустить", bg_color="#1c1917",
@@ -400,7 +437,7 @@ class ArcParseGUI:
         self.stop_btn_w.config(fg=TEXT_MUTED)
 
         # ─── Прогресс ──────────────────────────────────────────
-        prog = tk.Frame(self.root, bg=BG)
+        prog = tk.Frame(self._main_content, bg=BG)
         prog.pack(fill=tk.X, padx=24, pady=(10, 2))
 
         self.progress_canvas = tk.Canvas(prog, height=6, bg=PROGRESS_T,
@@ -413,7 +450,7 @@ class ArcParseGUI:
         self.progress_label.pack(anchor=tk.W, pady=(4, 0))
 
         # ─── Лог ────────────────────────────────────────────────
-        log_hdr = tk.Frame(self.root, bg=BG)
+        log_hdr = tk.Frame(self._main_content, bg=BG)
         log_hdr.pack(fill=tk.X, padx=24, pady=(12, 4))
         tk.Label(log_hdr, text="Журнал событий", bg=BG, fg=TEXT_MUTED,
                  font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT)
@@ -421,7 +458,7 @@ class ArcParseGUI:
              font=("Segoe UI", 8), active_bg=BG_HOVER,
              command=self._clear_log, padx=6, pady=2).pack(side=tk.RIGHT)
 
-        log_inner = tk.Frame(self.root, bg=BG, padx=24, pady=4)
+        log_inner = tk.Frame(self._main_content, bg=BG, padx=24, pady=4)
         log_inner.pack(fill=tk.BOTH, expand=True)
 
         log_box = tk.Frame(log_inner, bg=BG_CARD, highlightthickness=1,
@@ -448,18 +485,446 @@ class ArcParseGUI:
 
         self.log("arqParse запущен", "title")
 
+    def _build_settings_page(self, parent):
+        """Строит страницу настроек (изначально пустую, заполняется при открытии)."""
+        # Заголовок с кнопкой Назад
+        hdr = tk.Frame(parent, bg=BG)
+        hdr.pack(fill=tk.X, padx=24, pady=(16, 8))
+
+        back_btn = _Btn(hdr, text="← Назад", bg_color=BG, fg_color=ACCENT_LG,
+                        font=("Segoe UI", 11, "bold"), active_bg=BG_HOVER,
+                        command=self._go_home, padx=4, pady=2)
+        back_btn.pack(side=tk.LEFT)
+
+        tk.Label(hdr, text="Настройки", bg=BG, fg=TEXT,
+                 font=("Segoe UI", 18, "bold")).pack(anchor=tk.W, padx=(16, 0))
+
+        # Заголовок — просто "Категории"
+        tab_row = tk.Frame(parent, bg=BG)
+        tab_row.pack(fill=tk.X, padx=24, pady=(0, 8))
+
+        tk.Label(tab_row, text="Категории", bg=BG_CARD, fg=ACCENT_LG,
+                 font=("Segoe UI", 10, "bold"), padx=16, pady=6).pack(side=tk.LEFT)
+
+        # Контейнер для контента с прокруткой
+        self._settings_content = tk.Frame(parent, bg=BG)
+        self._settings_content.pack(fill=tk.BOTH, expand=True, padx=24, pady=0)
+
+        # Canvas + scrollbar
+        self._set_canvas = tk.Canvas(self._settings_content, bg=BG, highlightthickness=0)
+        self._set_scrollbar = ttk.Scrollbar(self._settings_content, orient=tk.VERTICAL,
+                                             command=self._set_canvas.yview)
+        self._set_scrollable = tk.Frame(self._set_canvas, bg=BG)
+
+        self._set_canvas.create_window((0, 0), window=self._set_scrollable, anchor="nw")
+        self._set_canvas.configure(yscrollcommand=self._set_scrollbar.set)
+
+        # Обновляем scrollregion при изменении контента
+        self._set_scrollable.bind("<Configure>", self._on_scrollable_configure)
+        # Растягиваем scrollable по ширине canvas
+        self._set_canvas.bind("<Configure>", self._on_settings_canvas_configure)
+
+        self._set_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self._set_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Прокрутка — bind_all на root, но только когда страница настроек видна
+        self.root.bind_all("<MouseWheel>", self._on_set_mousewheel)
+        self.root.bind_all("<Button-4>", self._on_set_mousewheel_linux)
+        self.root.bind_all("<Button-5>", self._on_set_mousewheel_linux)
+
+        # Контейнер для контента
+        self._settings_content_frame = tk.Frame(self._set_scrollable, bg=BG)
+        self._settings_content_frame.pack(fill=tk.X)
+
+        # Строим начальное состояние
+        self._build_settings_tab_content()
+
+        # Кнопки внизу
+        btn_row = tk.Frame(parent, bg=BG)
+        btn_row.pack(fill=tk.X, padx=24, pady=(8, 16))
+
+        tk.Label(btn_row, text="", bg=BG).pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        tk.Button(btn_row, text="Сбросить", bg=BG_CARD, fg=TEXT_DIM,
+                  activebackground=BG_HOVER, activeforeground=TEXT,
+                  font=("Segoe UI", 10, "bold"), relief=tk.FLAT,
+                  cursor="hand2", command=self._reset_settings, width=12).pack(side=tk.RIGHT, padx=(6, 0))
+
+        tk.Button(btn_row, text="Сохранить", bg=ACCENT, fg="#fff",
+                  activebackground=ACCENT_DK, activeforeground="#fff",
+                  font=("Segoe UI", 10, "bold"), relief=tk.FLAT,
+                  cursor="hand2", command=self._save_settings, width=12).pack(side=tk.RIGHT)
+
+    def _on_scrollable_configure(self, event):
+        """Обновляем scrollregion при изменении размера контента."""
+        self._set_canvas.configure(scrollregion=self._set_canvas.bbox("all"))
+        self._update_scrollbar_visibility()
+
+    def _on_settings_canvas_configure(self, event):
+        """Растягиваем scrollable по ширине canvas."""
+        self._set_canvas.itemconfig("all", width=event.width)
+
+    def _update_scrollbar_visibility(self):
+        """Обновить scrollregion и показать/скрыть скроллбар."""
+        self._set_canvas.update_idletasks()
+        bbox = self._set_canvas.bbox("all")
+        if not bbox:
+            return
+        x1, y1, x2, y2 = bbox
+        content_h = y2 - y1
+        canvas_h = self._set_canvas.winfo_height()
+
+        if content_h > canvas_h:
+            if not self._set_scrollbar.winfo_viewable():
+                self._set_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+                self._set_canvas.update_idletasks()
+            self._set_canvas.configure(scrollregion=bbox)
+        else:
+            if self._set_scrollbar.winfo_viewable():
+                self._set_scrollbar.pack_forget()
+                self._set_canvas.update_idletasks()
+            self._set_canvas.configure(scrollregion=bbox)
+
+    def _on_set_mousewheel(self, event):
+        """Прокрутка только когда страница настроек активна."""
+        if self._current_page == "settings" and self._set_canvas.winfo_viewable():
+            direction = 3 if event.delta > 0 else -3
+            self._set_canvas.yview_scroll(direction, "units")
+
+    def _on_set_mousewheel_linux(self, event):
+        """Прокрутка для Linux."""
+        if self._current_page == "settings" and self._set_canvas.winfo_viewable():
+            if event.num == 4:
+                self._set_canvas.yview_scroll(-1, "units")
+            elif event.num == 5:
+                self._set_canvas.yview_scroll(1, "units")
+
+    def _build_settings_tab_content(self):
+        """Построить контент настроек (категории)."""
+        # Удаляем старый контент
+        for w in self._settings_content_frame.winfo_children():
+            w.destroy()
+
+        self._cat_cards = []
+        self._settings_content_frame.pack(fill=tk.X)
+        # Карточки категорий
+        tasks = self._settings.get("tasks", [])
+        for td in tasks:
+            self._create_category_card(td)
+        # Кнопка добавить
+        self._add_cat_btn = tk.Label(self._settings_content_frame, text="+ Добавить категорию",
+                                      bg=BG, fg=ACCENT_LG, font=("Segoe UI", 10, "bold"),
+                                      cursor="hand2")
+        self._add_cat_btn.pack(anchor=tk.W, padx=0, pady=(6, 10))
+        self._add_cat_btn.bind("<Button-1>", lambda e: self._add_category_card())
+
+        # Скроллим наверх
+        self.root.after(50, self._finish_tab_switch)
+
+    def _finish_tab_switch(self):
+        """Завершаем переключение вкладки после отрисовки."""
+        self._settings_content_frame.update_idletasks()
+        self._update_scrollbar_visibility()
+        self._set_canvas.yview("moveto", 0.0)
+
+    def _create_category_card(self, task_data):
+        """Создать карточку категории."""
+        card = {'data': dict(task_data), 'url_rows': []}
+
+        outer = tk.Frame(self._settings_content_frame, bg=BG)
+
+        # Карточка
+        body = tk.Frame(outer, bg=BG_CARD, highlightthickness=1, highlightbackground=BORDER)
+        body.pack(fill=tk.X, pady=(0, 4), ipady=4)
+
+        card['_frame'] = outer
+        card['_body'] = body
+
+        # Заголовок
+        hdr = tk.Frame(body, bg=BG_CARD)
+        hdr.pack(fill=tk.X, padx=10, pady=(10, 4))
+
+        name_entry = tk.Entry(hdr, bg=BG_INPUT, fg=ACCENT_LG,
+                               font=("Segoe UI", 11, "bold"),
+                               relief=tk.FLAT, bd=0, highlightthickness=1,
+                               highlightbackground=BORDER, insertbackground=TEXT)
+        name_entry.insert(0, task_data.get("name", ""))
+        name_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4)
+        card['_name_entry'] = name_entry
+
+        del_btn = tk.Label(hdr, text="🗑", bg=BG_CARD, fg=TEXT_MUTED,
+                           font=("Segoe UI", 12), cursor="hand2")
+        del_btn.pack(side=tk.LEFT, padx=(8, 0))
+        del_btn.bind("<Button-1>", lambda e, c=card: self._delete_category_card(c))
+        del_btn.bind("<Enter>", lambda e: del_btn.config(fg=RED))
+        del_btn.bind("<Leave>", lambda e: del_btn.config(fg=TEXT_MUTED))
+
+        # Тип — кастомный переключатель
+        type_row = tk.Frame(body, bg=BG_CARD)
+        type_row.pack(fill=tk.X, padx=10, pady=(2, 4))
+        tk.Label(type_row, text="Тип:", bg=BG_CARD, fg=TEXT_DIM,
+                 font=("Segoe UI", 9)).pack(side=tk.LEFT, padx=(0, 6))
+        type_var = tk.StringVar(value=task_data.get("type", "xray"))
+        card['_type_var'] = type_var
+
+        # Кнопки-переключатели xray / mtproto
+        type_btns = []
+
+        def _make_type_btn(parent, var, val, text):
+            is_active = var.get() == val
+            btn = tk.Label(parent, text=text,
+                           bg=ACCENT if is_active else BG_INPUT,
+                           fg="#fff" if is_active else TEXT_DIM,
+                           font=("Segoe UI", 9, "bold" if is_active else "normal"),
+                           cursor="hand2", padx=10, pady=3)
+            btn._val = val
+            btn.pack(side=tk.LEFT, padx=(0, 4))
+            btn.bind("<Button-1>", lambda e: _switch_type(val))
+            type_btns.append(btn)
+            return btn
+
+        def _switch_type(val):
+            type_var.set(val)
+            for w in type_btns:
+                active = type_var.get() == w._val
+                w.config(bg=ACCENT if active else BG_INPUT,
+                         fg="#fff" if active else TEXT_DIM,
+                         font=("Segoe UI", 9, "bold" if active else "normal"))
+
+        _make_type_btn(type_row, type_var, "xray", "Xray")
+        _make_type_btn(type_row, type_var, "mtproto", "MTProto")
+
+        # Источники URL
+        tk.Label(body, text="Источники (URL):", bg=BG_CARD, fg=TEXT_DIM,
+                 font=("Segoe UI", 9, "bold")).pack(anchor=tk.W, padx=10, pady=(6, 2))
+
+        urls_fr = tk.Frame(body, bg=BG_CARD)
+        urls_fr.pack(fill=tk.X, padx=10)
+        card['_urls_frame'] = urls_fr
+
+        for url in task_data.get("urls", []):
+            self._add_url_row_to_card(card, url)
+
+        add_url = tk.Label(urls_fr, text="+ Добавить URL", bg=BG_CARD,
+                           fg=ACCENT_LG, font=("Segoe UI", 9), cursor="hand2")
+        add_url.pack(anchor=tk.W, pady=(4, 6))
+        add_url.bind("<Button-1>", lambda e, c=card: self._add_url_row_to_card(c, ""))
+
+        # Целевой URL
+        opts = tk.Frame(body, bg=BG_CARD)
+        opts.pack(fill=tk.X, padx=10, pady=(4, 0))
+
+        tk.Label(opts, text="Целевой URL:", bg=BG_CARD, fg=TEXT_DIM,
+                 font=("Segoe UI", 9)).pack(anchor=tk.W)
+        target_entry = tk.Entry(opts, bg=BG_INPUT, fg=TEXT,
+                                 font=("Consolas", 9), relief=tk.FLAT,
+                                 bd=0, highlightthickness=1,
+                                 highlightbackground=BORDER,
+                                 insertbackground=TEXT)
+        target_entry.insert(0, task_data.get("target_url", "https://google.com"))
+        target_entry.pack(fill=tk.X, ipady=3, pady=(2, 6))
+        card['_target_entry'] = target_entry
+
+        # Макс пинг и кол-во
+        num_row = tk.Frame(opts, bg=BG_CARD)
+        num_row.pack(fill=tk.X)
+
+        tk.Label(num_row, text="Макс. пинг (мс):", bg=BG_CARD, fg=TEXT_DIM,
+                 font=("Segoe UI", 9)).pack(side=tk.LEFT, padx=(0, 4))
+        max_ping = tk.Entry(num_row, bg=BG_INPUT, fg=TEXT,
+                             font=("Segoe UI", 10), width=8, relief=tk.FLAT,
+                             bd=0, highlightthickness=1,
+                             highlightbackground=BORDER,
+                             insertbackground=TEXT)
+        max_ping.insert(0, str(task_data.get("max_ping_ms", 9000)))
+        max_ping.pack(side=tk.LEFT, ipady=3)
+        card['_max_ping'] = max_ping
+
+        tk.Label(num_row, text="  Мин. кол-во:", bg=BG_CARD, fg=TEXT_DIM,
+                 font=("Segoe UI", 9)).pack(side=tk.LEFT, padx=(10, 4))
+        req_count = tk.Entry(num_row, bg=BG_INPUT, fg=TEXT,
+                              font=("Segoe UI", 10), width=5, relief=tk.FLAT,
+                              bd=0, highlightthickness=1,
+                              highlightbackground=BORDER,
+                              insertbackground=TEXT)
+        req_count.insert(0, str(task_data.get("required_count", 10)))
+        req_count.pack(side=tk.LEFT, ipady=3)
+        card['_req_count'] = req_count
+
+        # Имя профиля
+        tk.Label(opts, text="Имя профиля:", bg=BG_CARD, fg=TEXT_DIM,
+                 font=("Segoe UI", 9)).pack(anchor=tk.W, pady=(6, 2))
+        profile_entry = tk.Entry(opts, bg=BG_INPUT, fg=TEXT,
+                                  font=("Segoe UI", 10), relief=tk.FLAT,
+                                  bd=0, highlightthickness=1,
+                                  highlightbackground=BORDER,
+                                  insertbackground=TEXT)
+        profile_entry.insert(0, task_data.get("profile_title", ""))
+        profile_entry.pack(fill=tk.X, ipady=3, pady=(0, 10))
+        card['_profile_entry'] = profile_entry
+
+        outer.pack(fill=tk.X, pady=(0, 4))
+        self._cat_cards.append(card)
+
+    def _add_url_row_to_card(self, card, url=""):
+        """Добавить строку URL в карточку."""
+        row = tk.Frame(card['_urls_frame'], bg=BG_CARD)
+        row.pack(fill=tk.X, pady=2)
+
+        lbl = tk.Label(row, text="→", bg=BG_CARD, fg=TEXT_DIM,
+                       font=("Segoe UI", 9), width=2, anchor=tk.W)
+        lbl.pack(side=tk.LEFT, padx=(0, 4))
+
+        entry = tk.Entry(row, bg=BG_INPUT, fg=TEXT, font=("Consolas", 9),
+                         relief=tk.FLAT, bd=0, highlightthickness=1,
+                         highlightbackground=BORDER, insertbackground=TEXT)
+        entry.insert(0, url)
+        entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=3)
+
+        del_btn = tk.Label(row, text="✕", bg=BG_CARD, fg=TEXT_MUTED,
+                           font=("Segoe UI", 10), cursor="hand2")
+        del_btn.pack(side=tk.LEFT, padx=(4, 0))
+        del_btn.bind("<Button-1>", lambda e, en=entry: self._remove_url_row(card, en))
+        del_btn.bind("<Enter>", lambda e: del_btn.config(fg=RED))
+        del_btn.bind("<Leave>", lambda e: del_btn.config(fg=TEXT_MUTED))
+
+        card['url_rows'].append(entry)
+
+    def _remove_url_row(self, card, entry):
+        """Удалить строку URL из карточки."""
+        if entry in card['url_rows']:
+            card['url_rows'].remove(entry)
+        entry.master.destroy()
+
+    def _delete_category_card(self, card):
+        """Удалить карточку категории с подтверждением."""
+        name = card['_name_entry'].get().strip() or "Без имени"
+        if not self._dark_ask("Удалить категорию", f"Удалить «{name}»?"):
+            return
+        if card in self._cat_cards:
+            self._cat_cards.remove(card)
+        card['_frame'].pack_forget()
+
+    def _add_category_card(self):
+        """Добавить новую категорию."""
+        new_task = {
+            "name": "Новая категория",
+            "type": "xray",
+            "urls": [""],
+            "target_url": "https://google.com",
+            "max_ping_ms": 9000,
+            "required_count": 10,
+            "profile_title": "",
+        }
+        self._create_category_card(new_task)
+        # Скроллим вниз
+        self.root.after(50, self._scroll_to_bottom)
+
+    def _scroll_to_bottom(self):
+        self._settings_content_frame.update_idletasks()
+        self._update_scrollbar_visibility()
+        self._set_canvas.yview("moveto", 1.0)
+
+    def _rebuild_settings_page(self):
+        """Перестроить страницу настроек (после сброса)."""
+        self._build_settings_tab_content()
+
+    def _save_settings(self):
+        """Собрать данные и сохранить."""
+        tasks = []
+        for card in self._cat_cards:
+            name = card['_name_entry'].get().strip()
+            if not name:
+                continue
+            urls = [e.get().strip() for e in card['url_rows'] if e.get().strip()]
+            if not urls:
+                continue
+            try:
+                max_ping = int(card['_max_ping'].get().strip())
+            except ValueError:
+                max_ping = 9000
+            try:
+                req_count = int(card['_req_count'].get().strip())
+            except ValueError:
+                req_count = 10
+
+            from config import RAW_CONFIGS_DIR
+            raw_files = []
+            for u in urls:
+                fname = u.split("/")[-1].split("?")[0]
+                if fname:
+                    raw_files.append(os.path.join(RAW_CONFIGS_DIR, fname))
+
+            profile = card['_profile_entry'].get().strip()
+            out_name = name.lower().replace(' ', '_')
+            tasks.append({
+                "name": name,
+                "type": card['_type_var'].get(),
+                "urls": urls,
+                "raw_files": raw_files,
+                "target_url": card['_target_entry'].get().strip(),
+                "max_ping_ms": max_ping,
+                "required_count": req_count,
+                "profile_title": profile,
+                "out_file": os.path.join(RESULTS_DIR, f"top_{out_name}.txt"),
+            })
+
+        if not tasks:
+            messagebox.showwarning("Внимание", "Добавьте хотя бы одну категорию с именем и URL",
+                                   parent=self.root)
+            return
+
+        settings = {
+            "tasks": tasks,
+            "user_agent": self._settings.get("user_agent", ""),
+        }
+        save_settings(settings)
+        self._settings = settings
+        self._tasks = get_tasks()
+
+        # Перестраиваем чекбоксы на главной
+        self._rebuild_task_checkboxes()
+
+        messagebox.showinfo("Сохранено", "Настройки сохранены ✓", parent=self.root)
+
+    def _reset_settings(self):
+        """Сбросить настройки к дефолтным."""
+        if not self._dark_ask("Сброс настроек", "Сбросить все настройки к значениям по умолчанию?"):
+            return
+        from settings_manager import _default_settings
+        self._settings = _default_settings()
+        self._tasks = get_tasks()
+        self._rebuild_settings_page()
+        self._rebuild_task_checkboxes()
+        messagebox.showinfo("Сброшено", "Настройки сброшены", parent=self.root)
+
+    def _rebuild_task_checkboxes(self):
+        """Перестроить чекбоксы задач на главной странице."""
+        if not hasattr(self, 'check_vars'):
+            return
+        for widget in self._checkbox_container.winfo_children():
+            widget.destroy()
+        self.check_vars.clear()
+        for task in self._tasks:
+            row = tk.Frame(self._checkbox_container, bg=BG_CARD)
+            row.pack(fill=tk.X, pady=2)
+            var = tk.BooleanVar(value=True)
+            self.check_vars[task['name']] = {'var': var, 'task': task}
+            cb = tk.Checkbutton(row, text=task['name'], variable=var,
+                                bg=BG_CARD, fg=TEXT, selectcolor=BG_INPUT,
+                                activebackground=BG_CARD, activeforeground=TEXT,
+                                highlightthickness=0, bd=0, font=("Segoe UI", 10))
+            cb.pack(side=tk.LEFT)
+
     # ─── Кастомный прогресс-бар ─────────────────────────────────
     def _get_progress_width(self):
-        """Получает актуальную ширину канваса."""
         w = self.progress_canvas.winfo_width()
         if w <= 1:
-            # Если ещё не отрисован — форсируем layout
             self.root.update_idletasks()
             w = self.progress_canvas.winfo_width()
         return max(w, 1)
 
     def _set_progress_bar(self, pct):
-        """Рисует прогресс-бар на заданный процент."""
         w = self._get_progress_width()
         self.progress_canvas.coords(self.progress_bar, 0, 0, int(w * pct), 6)
 
@@ -472,33 +937,27 @@ class ArcParseGUI:
             self.progress_label.config(text=f"{int(pct*100)}%")
         else:
             pct = 0
-
         self._set_progress_bar(pct)
         self.root.update()
 
     def _dark_ask(self, title, message):
         """Диалог в тёмной теме через Toplevel."""
         result = [None]
-
         dlg = tk.Toplevel(self.root)
         dlg.configure(bg=BG)
-
         w = tk.Frame(dlg, bg=BG, padx=24, pady=18)
         w.pack(fill=tk.BOTH, expand=True)
-
         tk.Label(w, text=title, bg=BG, fg=TEXT,
                  font=("Segoe UI", 13, "bold")).pack(pady=(0, 6))
         tk.Label(w, text=message, bg=BG, fg=TEXT_DIM,
                  font=("Segoe UI", 11), wraplength=270,
                  justify=tk.CENTER).pack(pady=(0, 16))
-
         br = tk.Frame(w, bg=BG)
         br.pack(fill=tk.X)
 
         def _yes():
             result[0] = True
             dlg.destroy()
-
         def _no():
             result[0] = False
             dlg.destroy()
@@ -513,8 +972,6 @@ class ArcParseGUI:
                   font=("Segoe UI", 10, "bold"), relief=tk.FLAT,
                   cursor="hand2", command=_yes).pack(side=tk.LEFT,
                                                       fill=tk.X, expand=True, padx=(3, 0))
-
-        # Сначала рисуем, ПОТОМ блокируем
         dlg.update_idletasks()
         rw = max(dlg.winfo_reqwidth(), 310)
         rh = max(dlg.winfo_reqheight(), 150)
@@ -522,8 +979,6 @@ class ArcParseGUI:
         py = self.root.winfo_y() + (self.root.winfo_height() - rh) // 2
         dlg.geometry(f"{rw}x{rh}+{px}+{py}")
         dlg.update()
-
-        # Grab только после отрисовки
         dlg.grab_set()
         self.root.wait_window(dlg)
         return result[0] if result[0] is not None else False
@@ -535,7 +990,6 @@ class ArcParseGUI:
             os.execv(sys.executable, [sys.executable] + sys.argv)
 
     def _clear_log(self):
-        """Очистить журнал событий."""
         self.log_text.config(state=tk.NORMAL)
         self.log_text.delete("1.0", tk.END)
         self.log_text.config(state=tk.DISABLED)
@@ -550,7 +1004,6 @@ class ArcParseGUI:
             messagebox.showerror("Ошибка", str(e), parent=self.root)
 
     def _toggle_sub_url(self):
-        """Показать/скрыть ссылку подписки."""
         if self._sub_url_visible:
             self.sub_url_frame.pack_forget()
             self._sub_url_visible = False
@@ -621,7 +1074,7 @@ class ArcParseGUI:
     def _download_thread(self):
         try:
             self.log("Скачивание конфигов...", "title")
-            results = download_all_tasks(TASKS, max_age_hours=24, force=False, log_func=self.log)
+            results = download_all_tasks(self._tasks, max_age_hours=24, force=False, log_func=self.log)
             d = len(results.get('downloaded', []))
             s = len(results.get('skipped', []))
             f = len(results.get('failed', []))
@@ -704,7 +1157,7 @@ class ArcParseGUI:
         if not auth_module.is_logged_in():
             return
 
-        all_task_names = [t['name'] for t in TASKS]
+        all_task_names = [t['name'] for t in self._tasks]
         if tested_tasks is None:
             tested_tasks = all_task_names
 
@@ -856,29 +1309,23 @@ class ArcParseGUI:
             self.log(f"Ошибка объединения: {e}", "error")
 
     def _ask_update_sub_or_open_folder(self, tested_tasks=None):
-        """После теста спрашивает: обновить подписку/GitHub. Если нет — открыть папку.
-        Вызывается из фонового потока — поэтому используем root.after."""
-
+        """После теста спрашивает: обновить подписку/GitHub. Если нет — открыть папку."""
         def _do():
             session = auth_module.get_session()
             username = session.get("username") if session else None
-
             if username == "admin":
                 if self._dark_ask("GitHub", "Обновить результаты в репозитории GitHub?"):
                     threading.Thread(target=self._push_to_github_thread, daemon=True).start()
                 else:
                     self.open_results()
                 return
-
             if not auth_module.is_logged_in():
                 self.open_results()
                 return
-
             if self._dark_ask("Подписка", "Обновить вашу подписку на сервере?"):
                 self._upload_subscription(tested_tasks=tested_tasks)
             else:
                 self.open_results()
-
         self.root.after(0, _do)
 
     def _push_to_github_thread(self):
