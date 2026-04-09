@@ -24,9 +24,9 @@ python main.py --gui
 | Файл | Описание |
 |------|---------|
 | [all_top_vpn.txt](https://raw.githubusercontent.com/arkoovx/arqParse/refs/heads/main/results/all_top_vpn.txt) | Все рабочие VPN конфиги (объединённые) |
-| [top_vpn.txt](https://raw.githubusercontent.com/arkoovx/arqParse/refs/heads/main/results/top_vpn.txt) | Лучшие VPN конфиги |
-| [top_bypass.txt](https://raw.githubusercontent.com/arkoovx/arqParse/refs/heads/main/results/top_bypass.txt) | Лучшие обходные конфиги |
-| [top_MTProto.txt](https://raw.githubusercontent.com/arkoovx/arqParse/refs/heads/main/results/top_MTProto.txt) | Лучшие Telegram прокси |
+| [top_base_vpn.txt](https://raw.githubusercontent.com/arkoovx/arqParse/refs/heads/main/results/top_base_vpn.txt) | Лучшие базовые VPN конфиги |
+| [top_bypass_vpn.txt](https://raw.githubusercontent.com/arkoovx/arqParse/refs/heads/main/results/top_bypass_vpn.txt) | Лучшие обходные конфиги |
+| [top_telegram_mtproto.txt](https://raw.githubusercontent.com/arkoovx/arqParse/refs/heads/main/results/top_telegram_mtproto.txt) | Лучшие Telegram прокси |
 
 ### Как использовать
 
@@ -71,4 +71,3 @@ MIT
 ## 💬 Поддержка
 
 Вопросы? Создайте issue в репозитории или напишите [@arqhub](https://t.me/arqhub) в Telegram.
-

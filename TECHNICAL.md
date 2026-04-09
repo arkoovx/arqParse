@@ -70,7 +70,7 @@ TASKS = [
             "https://raw.githubusercontent.com/.../23.txt",
         ],
         "raw_files": ["rawconfigs/22.txt", "rawconfigs/23.txt"],
-        "out_file": "results/top_vpn.txt",
+        "out_file": "results/top_base_vpn.txt",
         "type": "xray",
         "target_url": "https://google.com",
         "max_ping_ms": 15000,
@@ -122,9 +122,9 @@ arqParse/
 
 После завершения работы результаты сохраняются в папку `results/`:
 
-- `top_vpn.txt` — лучшие VPN конфиги
-- `top_bypass.txt` — лучшие обходные конфиги
-- `top_MTProto.txt` — лучшие MTProto прокси
+- `top_base_vpn.txt` — лучшие базовые VPN конфиги
+- `top_bypass_vpn.txt` — лучшие обходные конфиги
+- `top_telegram_mtproto.txt` — лучшие MTProto прокси
 - `all_top_vpn.txt` — объединённые VPN конфиги
 
 Формат файла:
@@ -162,7 +162,7 @@ vless://... # 200ms
   ✓ [  2/2109]   250.7 ms | vless://...
   
   Найдено в этом файле: 10 (всего: 10/10)
-✓ Сохранено 10 конфигов в top_vpn.txt
+✓ Сохранено 10 конфигов в top_base_vpn.txt
 ```
 
 Итоговая таблица:

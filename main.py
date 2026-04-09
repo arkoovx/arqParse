@@ -27,6 +27,16 @@ from ui import (
     print_results_table, print_summary, Colors
 )
 
+RESULTS_MERGED_FILENAME = "all_top_vpn.txt"
+
+
+def _task_out_file(task_name: str):
+    """Возвращает путь к файлу результатов для задачи по имени."""
+    for task in TASKS:
+        if task.get("name") == task_name:
+            return task.get("out_file")
+    return None
+
 
 def _test_xray_task(task: dict, skip_xray: bool) -> list:
     """Тестирует Xray-задачу (VLESS, VMess, Trojan, SS). Возвращает список (url, ping_ms)."""
@@ -164,16 +174,22 @@ def main(force_download: bool = False, skip_xray: bool = False, proxy_url: str =
 
     download_results = download_all_tasks(TASKS, max_age_hours=24, force=force_download)
 
-    if download_results['failed']:
-        print()
-        for failed in download_results['failed']:
-            print_warning(f"Не удалось скачать: {failed}")
+    failed = download_results.get('failed', [])
+    downloaded = download_results.get('downloaded', [])
+    skipped = download_results.get('skipped', [])
 
-    if not download_results['success']:
+    if failed:
+        print()
+        for failed_item in failed:
+            print_warning(f"Не удалось скачать: {failed_item}")
+
+    if not downloaded and not skipped:
         print_error("\nНе скачан ни один файл. Выход.")
         sys.exit(1)
 
-    print_success(f"Скачано файлов: {len(download_results['success'])}")
+    print_success(f"Скачано файлов: {len(downloaded)}")
+    if skipped:
+        print_info(f"Пропущено актуальных файлов: {len(skipped)}")
 
     # Этап 1.5: Проверка и установка Xray
     print_header("🔧 ЭТАП 1.5: ПРОВЕРКА XRAY")
@@ -258,7 +274,14 @@ def prompt_and_push_to_github():
 
                 # Собираем файлы результатов
                 result_files = []
-                for file in ["top_vpn.txt", "top_bypass.txt", "top_MTProto.txt", "all_top_vpn.txt"]:
+                result_filenames = {
+                    os.path.basename(task.get("out_file", ""))
+                    for task in TASKS
+                    if task.get("out_file")
+                }
+                result_filenames.add(RESULTS_MERGED_FILENAME)
+
+                for file in sorted(result_filenames):
                     file_path = os.path.join(RESULTS_DIR, file)
                     if os.path.exists(file_path):
                         result_files.append(os.path.join(RESULTS_DIR, file))
@@ -340,9 +363,11 @@ def merge_vpn_configs():
     """Объединяет конфиги из top_vpn.txt и top_bypass.txt в all_top_vpn.txt.
     Копирует конфиги как есть, без изменений названий и нумерации.
     Дедупликация по базовой части URL (без #fragment)."""
-    top_vpn_file = os.path.join(RESULTS_DIR, "top_vpn.txt")
-    top_bypass_file = os.path.join(RESULTS_DIR, "top_bypass.txt")
-    all_top_vpn_file = os.path.join(RESULTS_DIR, "all_top_vpn.txt")
+    top_vpn_task_file = _task_out_file("Base VPN")
+    top_bypass_task_file = _task_out_file("Bypass VPN")
+    top_vpn_file = top_vpn_task_file or os.path.join(RESULTS_DIR, "top_base_vpn.txt")
+    top_bypass_file = top_bypass_task_file or os.path.join(RESULTS_DIR, "top_bypass_vpn.txt")
+    all_top_vpn_file = os.path.join(RESULTS_DIR, RESULTS_MERGED_FILENAME)
 
     try:
         all_configs = []
@@ -383,7 +408,7 @@ def merge_vpn_configs():
                 for config in configs:
                     f.write(f"{config}\n")
             
-            print_success(f"Объединено {len(configs)} конфигов в all_top_vpn.txt")
+            print_success(f"Объединено {len(configs)} конфигов в {RESULTS_MERGED_FILENAME}")
     except Exception as e:
         print(f"[!] Ошибка при объединении конфигов: {e}")
 
