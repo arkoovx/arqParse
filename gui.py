@@ -13,6 +13,11 @@ import threading
 import traceback
 from typing import Dict, List
 
+# Важно: отключаем парсер аргументов Kivy, иначе флаг `--gui`
+# (который обрабатывается нашим argparse в main.py) вызывает ошибку
+# "option --gui not recognized" на старте приложения.
+os.environ.setdefault("KIVY_NO_ARGS", "1")
+
 from kivy.animation import Animation
 from kivy.clock import Clock
 from kivy.core.clipboard import Clipboard
