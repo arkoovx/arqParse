@@ -281,12 +281,13 @@ class KivyGUIApp(MDApp):
         self._stop_event = threading.Event()
         self._task_checks: Dict[str, MDCheckbox] = {}
 
-        root = Builder.load_string(KV)
-        self.root = root
-        self._load_initial_state()
-        return root
+        # В build() только создаём дерево виджетов.
+        # На этом этапе self.root у App ещё не гарантированно инициализирован.
+        return Builder.load_string(KV)
 
     def on_start(self):
+        # Здесь self.root уже выставлен Kivy, можно безопасно обращаться к ids.
+        self._load_initial_state()
         self.switch_screen("login" if not auth_module.is_logged_in() else "main")
         self._animate_cards()
 
