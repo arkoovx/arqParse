@@ -4,3 +4,6 @@ PySocks>=1.7.1
 # Для MTProto нужна одна из библиотек (pycryptodome предпочтительнее, cryptography как fallback)
 pycryptodome>=3.15.0
 cryptography>=3.4.0
+# Современный кроссплатформенный GUI
+kivy>=2.3.0
+kivymd>=1.2.0

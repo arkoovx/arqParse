@@ -462,7 +462,7 @@ if __name__ == "__main__":
   {Colors.GREEN}./venv/bin/python main.py --force{Colors.RESET}      # Обновить всё
         """
     )
-    parser.add_argument("--gui", action="store_true", help="Запустить графический интерфейс (Tkinter)")
+    parser.add_argument("--gui", action="store_true", help="Запустить графический интерфейс (Kivy/KivyMD)")
     parser.add_argument("--force", "-f", action="store_true", help="Принудительно перезагрузить все файлы")
     parser.add_argument("--skip-xray", action="store_true", help="Пропустить тестирование Xray конфигов")
     parser.add_argument("--proxy", type=str, help="Прокси для тестирования (socks5://host:port)")

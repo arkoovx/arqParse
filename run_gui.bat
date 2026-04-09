@@ -32,15 +32,13 @@ where /q py && (
 )
 echo [+] Python найден: %PY_VER%
 
-:: 2. Проверка Tkinter
-%PYTHON_CMD% -c "import tkinter" >nul 2>&1
+:: 2. Проверка Kivy/KivyMD (опционально в системном Python)
+%PYTHON_CMD% -c "import kivy, kivymd" >nul 2>&1
 if errorlevel 1 (
-    echo [X] Tkinter не установлен.
-    echo     Переустановите Python с опцией "tcl/tk"
-    pause
-    exit /b 1
+    echo [*] Kivy/KivyMD не найдены в системном Python - будут установлены в venv
+) else (
+    echo [+] Kivy/KivyMD доступны
 )
-echo [+] Tkinter установлен
 
 :: 3. Создание venv если нет
 :: Проверяем оба возможных расположения python.exe (Windows и MSYS2 стили)

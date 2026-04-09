@@ -32,18 +32,12 @@ fi
 PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
 echo -e "${GREEN}✓${NC} Python найден: $PYTHON_VERSION"
 
-# 2. Проверка Tkinter
-if ! python3 -c "import tkinter" 2>/dev/null; then
-    echo -e "${RED}❌ Tkinter не установлен${NC}"
-    echo ""
-    echo "Установите одной из команд:"
-    echo -e "  ${YELLOW}Ubuntu/Debian:${NC} sudo apt install python3-tk"
-    echo -e "  ${YELLOW}Fedora/CentOS:${NC} sudo dnf install python3-tkinter"
-    echo -e "  ${YELLOW}Arch:${NC}       sudo pacman -S tk"
-    echo -e "  ${YELLOW}macOS:${NC}      brew install python-tk"
-    exit 1
+# 2. Проверка Kivy/KivyMD
+if ! python3 -c "import kivy, kivymd" 2>/dev/null; then
+    echo -e "${YELLOW}→${NC} Kivy/KivyMD не найдены в системном Python (это нормально, установим в venv)"
+else
+    echo -e "${GREEN}✓${NC} Kivy/KivyMD доступны"
 fi
-echo -e "${GREEN}✓${NC} Tkinter установлен"
 
 # 3. Создание venv если нет
 if [ ! -f "$PYTHON_BIN" ]; then
