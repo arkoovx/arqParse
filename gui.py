@@ -41,6 +41,7 @@ from testers_mtproto import test_mtproto_configs
 
 KV = r'''
 #:import dp kivy.metrics.dp
+#:import FadeTransition kivy.uix.screenmanager.FadeTransition
 
 <RootWidget>:
     ScreenManager:
