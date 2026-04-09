@@ -281,9 +281,11 @@ class KivyGUIApp(MDApp):
         self._stop_event = threading.Event()
         self._task_checks: Dict[str, MDCheckbox] = {}
 
-        # В build() только создаём дерево виджетов.
-        # На этом этапе self.root у App ещё не гарантированно инициализирован.
-        return Builder.load_string(KV)
+        # Сначала загружаем KV-правила, затем явно создаём корневой виджет.
+        # Важно: в KV у нас class-rule `<RootWidget>: ...`, а не root-правило `RootWidget:`.
+        # Поэтому Builder.load_string(KV) сам по себе может вернуть None.
+        Builder.load_string(KV)
+        return RootWidget()
 
     def on_start(self):
         # Здесь self.root уже выставлен Kivy, можно безопасно обращаться к ids.
