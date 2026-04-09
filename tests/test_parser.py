@@ -183,3 +183,15 @@ class TestReadMtprotoFromFile:
             assert "2.2.2.2" in proxies[1]
         finally:
             os.unlink(path)
+
+    def test_duplicate_mtproto_are_deduplicated(self):
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            proxy = "https://t.me/proxy?server=1.1.1.1&port=443&secret=a"
+            f.write(f"{proxy}\n{proxy}\n")
+            f.flush()
+            path = f.name
+        try:
+            proxies = read_mtproto_from_file(path)
+            assert proxies == [proxy]
+        finally:
+            os.unlink(path)
