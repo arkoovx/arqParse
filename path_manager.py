@@ -18,6 +18,7 @@ def normalize_path(path: str) -> str:
     - Заменяет '/' и '\\' на os.sep
     - Если путь — абсолютный для другой ОС, извлекает относительную часть
       от проекта и склеивает с BASE_DIR
+    - Если путь не начинается с текущего BASE_DIR, пересчитывает относительно него
     """
     if not path:
         return path
@@ -35,6 +36,13 @@ def normalize_path(path: str) -> str:
     # Windows путь на Linux/macOS
     if os.name != 'nt' and re.match(r'^[A-Za-z]:', normalized):
         needs_rebase = True
+
+    # Linux путь на Linux, но проект переехал — проверяем что путь начинается с BASE_DIR
+    base_norm = os.path.normpath(BASE_DIR).replace('\\', '/')
+    if os.name != 'nt' and not needs_rebase:
+        if normalized.startswith('/home') or normalized.startswith('/root') or normalized.startswith('/Users'):
+            if not normalized.startswith(base_norm):
+                needs_rebase = True
 
     if needs_rebase:
         # Ищем известные директории проекта в пути

@@ -39,7 +39,7 @@ TASKS = [
         "out_file": os.path.join(RESULTS_DIR, "top_base_vpn.txt"),
         "profile_title": "arqVPN Free | Обычный",
         "type": "xray",
-        "target_url": "https://google.com",
+        "target_url": "https://www.google.com/generate_204",
         "max_ping_ms": 9000,
         "required_count": 10
     },
@@ -54,7 +54,7 @@ TASKS = [
         "out_file": os.path.join(RESULTS_DIR, "top_bypass_vpn.txt"),
         "profile_title": "arqVPN Free | Обход",
         "type": "xray",
-        "target_url": "https://google.com",
+        "target_url": "https://www.google.com/generate_204",
         "max_ping_ms": 12000,
         "required_count": 10
     },

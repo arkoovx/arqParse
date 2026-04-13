@@ -72,7 +72,7 @@ def get_tasks():
             "out_file": t.get("out_file", ""),
             "profile_title": t.get("profile_title", ""),
             "type": t.get("type", "xray"),
-            "target_url": t.get("target_url", "https://google.com"),
+            "target_url": t.get("target_url", "https://www.google.com/generate_204"),
             "max_ping_ms": t.get("max_ping_ms", 9000),
             "required_count": t.get("required_count", 10),
         }

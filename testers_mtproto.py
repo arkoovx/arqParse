@@ -18,6 +18,8 @@ import threading
 from typing import List, Tuple, Optional, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from formatting import format_config_name
+
 from parser import parse_mtproto_url
 
 
@@ -203,6 +205,7 @@ def test_mtproto_configs(
     progress_func: Callable = None,
     out_file: str = None,
     profile_title: str = None,
+    config_type: str = None,
     stop_flag=None,
     skip_flag=None,
 ) -> Tuple[int, int, int]:
@@ -329,8 +332,9 @@ def test_mtproto_configs(
                     f.write(f"#profile-title: {profile_title or 'arqVPN MTProto'}\n")
                     f.write("#profile-update-interval: 48\n")
                     f.write("#support-url: https://t.me/arqhub\n\n")
-                    for url, ping_ms in final:
-                        f.write(f"{url}\n")
+                    for idx, (url, ping_ms) in enumerate(final, 1):
+                        formatted_url = format_config_name(url, idx, config_type, ping_ms)
+                        f.write(f"{formatted_url}\n")
                 strong_urls = {su for _, su in strong}
                 strong_in_final = sum(1 for u, _ in final if u in strong_urls)
                 _log(f"✓ Сохранено {passed} конфигов (STRONG: {strong_in_final}, WEAK: {weak_added}) в {out_file}", "success")

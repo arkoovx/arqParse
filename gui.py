@@ -7,7 +7,18 @@ import threading
 import webbrowser
 from typing import Dict, List
 
+# Отключаем mtdev и probesysfs до инициализации Kivy (требуют прав на /dev/input/event*)
+# Используем только SDL2 — работает без root-прав
+os.environ.setdefault("KIVY_INPUT_PROVIDERS", "sdl2")
 os.environ.setdefault("KIVY_NO_ARGS", "1")
+# Фикс: переопределяем дефолтный конфиг Kivy на лету
+import kivy.config
+kivy.config.Config.set("input", "mouse", "mouse")
+# Удаляем probesysfs — именно он сканирует /dev/input/event* и грузит mtdev
+for key in list(kivy.config.Config.options("input")):
+    if "probesysfs" in kivy.config.Config.get("input", key):
+        kivy.config.Config.remove_option("input", key)
+kivy.config.Config.write()  # сохраняем исправленный конфиг
 
 from kivy.core.window import Window
 from kivy.animation import Animation
@@ -20,13 +31,33 @@ from kivy.uix.screenmanager import FadeTransition, ScreenManager
 
 from kivymd.app import MDApp
 from kivymd.uix.boxlayout import MDBoxLayout
-from kivymd.uix.button import MDRectangleFlatButton, MDFlatButton, MDIconButton
+from kivymd.uix.button import MDButton, MDButtonText, MDIconButton
+
+
+def _mk_btn(text, on_release=None, bg_color=None, text_color=None):
+    """Создаёт MDButton (KivyMD 2.x стиль)."""
+    btn = MDButton()
+    if bg_color:
+        btn.md_bg_color = bg_color
+    btn.add_widget(MDButtonText(text=text, text_color=text_color or (1, 1, 1, 1)))
+    if on_release:
+        btn.bind(on_release=on_release)
+    return btn
+
+
+def _set_btn_text(btn, text):
+    """Устанавливает текст MDButton (ищет MDButtonText среди детей)."""
+    for c in btn.children:
+        if isinstance(c, MDButtonText):
+            c.text = text
+            return
+
+
 from kivymd.uix.label import MDLabel
-from kivymd.uix.progressbar import MDProgressBar
+from kivymd.uix.progressindicator import MDLinearProgressIndicator
 from kivymd.uix.screen import MDScreen
 from kivymd.uix.scrollview import MDScrollView
 from kivymd.uix.textfield import MDTextField
-from kivymd.uix.toolbar import MDTopAppBar
 from kivymd.uix.selectioncontrol import MDSwitch, MDCheckbox
 
 from kivy.factory import Factory
@@ -81,6 +112,7 @@ class NoAnimBtn(ButtonBehavior, MDBoxLayout):
     text = property(_get_text, _set_text)
 
 
+from kivy.factory import Factory
 Factory.register("ClickableLabel", cls=ClickableLabel)
 Factory.register("NoAnimBtn", cls=NoAnimBtn)
 
@@ -123,24 +155,77 @@ KV = r'''
             size: self.size
             radius: [14, 14, 14, 14]
 
-<AccentBtn@MDRectangleFlatButton>:
-    size_hint_y: None
-    height: dp(42)
-    md_bg_color: app.c_accent
-    text_color: (1, 1, 1, 1)
-    line_color: app.c_accent
 
-<DimBtn@MDRectangleFlatButton>:
+<HeaderBar@MDBoxLayout>:
+    orientation: "horizontal"
     size_hint_y: None
-    height: dp(36)
-    text_color: app.c_dim
-    line_color: app.c_dim
+    height: dp(48)
+    padding: [dp(12), dp(6)]
+    spacing: dp(8)
+    canvas.before:
+        Color:
+            rgba: app.c_bg
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [0]
 
-<SecBtn@MDFlatButton>:
+    MDLabel:
+        id: header_title
+        text: "arqParse"
+        bold: True
+        theme_text_color: "Custom"
+        text_color: app.c_text
+        size_hint_x: 1
+
+    MDIconButton:
+        icon: "cog-outline"
+        user_font_size: dp(22)
+        theme_text_color: "Custom"
+        text_color: app.c_dim
+        size_hint: None, None
+        size: dp(36), dp(36)
+        on_release: app.switch_screen("settings")
+
+    MDIconButton:
+        icon: "logout-variant"
+        user_font_size: dp(22)
+        theme_text_color: "Custom"
+        text_color: app.c_dim
+        size_hint: None, None
+        size: dp(36), dp(36)
+        on_release: app.logout()
+
+<SettingsHeader@MDBoxLayout>:
+    orientation: "horizontal"
     size_hint_y: None
-    height: dp(32)
-    theme_text_color: "Custom"
-    text_color: app.c_accent
+    height: dp(48)
+    padding: [dp(12), dp(6)]
+    spacing: dp(8)
+    canvas.before:
+        Color:
+            rgba: app.c_bg
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [0]
+
+    MDIconButton:
+        icon: "arrow-left"
+        user_font_size: dp(22)
+        theme_text_color: "Custom"
+        text_color: app.c_dim
+        size_hint: None, None
+        size: dp(36), dp(36)
+        on_release: app.switch_screen("main")
+
+    MDLabel:
+        id: settings_header_title
+        text: "Настройки"
+        bold: True
+        theme_text_color: "Custom"
+        text_color: app.c_text
+        size_hint_x: 1
 
 <RootWidget>:
     orientation: "vertical"
@@ -161,7 +246,7 @@ KV = r'''
                 MDLabel:
                     text: "arqParse"
                     halign: "center"
-                    font_style: "H3"
+                    font_size: dp(32)
                     bold: True
                     theme_text_color: "Custom"
                     text_color: app.c_text
@@ -184,7 +269,6 @@ KV = r'''
                     MDTextField:
                         id: login_user
                         hint_text: "Логин"
-                        mode: "rectangle"
                         size_hint_y: None
                         height: dp(44)
 
@@ -192,7 +276,6 @@ KV = r'''
                         id: login_pass
                         hint_text: "Пароль"
                         password: True
-                        mode: "rectangle"
                         size_hint_y: None
                         height: dp(44)
                         on_text_validate: app.do_auth()
@@ -204,24 +287,38 @@ KV = r'''
                         padding: 0
                         spacing: dp(2)
 
-                        MDFlatButton:
+                        MDButton:
                             id: tab_login
-                            text: "Вход"
                             size_hint_x: 0.5
+                            md_bg_color: app.c_accent
                             on_release: app.set_auth_mode("login")
 
-                        MDFlatButton:
+                            MDButtonText:
+                                id: tab_login_text
+                                text: "Вход"
+                                text_color: 1, 1, 1, 1
+
+                        MDButton:
                             id: tab_register
-                            text: "Регистрация"
                             size_hint_x: 0.5
+                            md_bg_color: (0, 0, 0, 0)
                             on_release: app.set_auth_mode("register")
 
-                    AccentBtn:
+                            MDButtonText:
+                                id: tab_register_text
+                                text: "Регистрация"
+                                text_color: app.c_dim
+
+                    MDButton:
                         id: auth_btn
-                        text: "Войти"
                         size_hint_x: 0.5
                         pos_hint: {"center_x": 0.5}
+                        md_bg_color: app.c_accent
                         on_release: app.do_auth()
+
+                        MDButtonText:
+                            text: "Войти"
+                            text_color: 1, 1, 1, 1
 
                 Widget:
 
@@ -259,13 +356,7 @@ KV = r'''
             MDBoxLayout:
                 orientation: "vertical"
 
-                MDTopAppBar:
-                    title: "arqParse"
-                    type: "top"
-                    anchor_title: "left"
-                    md_bg_color: app.c_bg
-                    left_action_items: []
-                    right_action_items: [["cog-outline", lambda x: app.switch_screen("settings")], ["logout-variant", lambda x: app.logout()]]
+                HeaderBar:
 
                 MDScrollView:
                     do_scroll_x: False
@@ -298,9 +389,13 @@ KV = r'''
                                 size_hint_y: None
                                 height: dp(16)
 
-                            DimBtn:
-                                text: "Скопировать ссылку"
+                            MDButton:
+                                md_bg_color: (0, 0, 0, 0)
                                 on_release: app.copy_subscription_url()
+
+                                MDButtonText:
+                                    text: "Скопировать ссылку"
+                                    text_color: app.c_dim
 
                         ClickableLabel:
                             id: bot_link_label
@@ -311,14 +406,18 @@ KV = r'''
                             markup: True
                             on_release: app.open_bot_link()
 
-                        AccentBtn:
+                        MDButton:
                             id: start_btn
-                            text: "Начать тест"
                             size_hint_x: 0.85
                             pos_hint: {"center_x": 0.5}
                             height: dp(56)
                             font_size: dp(18)
+                            md_bg_color: app.c_accent
                             on_release: app.start_full_test()
+
+                            MDButtonText:
+                                text: "Начать тест"
+                                text_color: 1, 1, 1, 1
 
                         NoAnimBtn:
                             id: adv_btn
@@ -351,13 +450,21 @@ KV = r'''
                                 size_hint_y: None
                                 height: dp(38)
 
-                                DimBtn:
-                                    text: "Скачать"
+                                MDButton:
+                                    md_bg_color: (0, 0, 0, 0)
                                     on_release: app.start_download()
 
-                                DimBtn:
-                                    text: "Результаты"
+                                    MDButtonText:
+                                        text: "Скачать"
+                                        text_color: app.c_dim
+
+                                MDButton:
+                                    md_bg_color: (0, 0, 0, 0)
                                     on_release: app.open_results()
+
+                                    MDButtonText:
+                                        text: "Результаты"
+                                        text_color: app.c_dim
 
                         MDBoxLayout:
                             orientation: "horizontal"
@@ -365,21 +472,25 @@ KV = r'''
                             height: dp(38)
                             spacing: dp(8)
 
-                            DimBtn:
+                            MDButton:
                                 id: skip_btn
-                                text: "Пропустить"
                                 disabled: True
-                                text_color: app.c_muted
-                                line_color: app.c_muted
+                                md_bg_color: (0, 0, 0, 0)
                                 on_release: app.skip_file()
 
-                            DimBtn:
+                                MDButtonText:
+                                    text: "Пропустить"
+                                    text_color: app.c_muted
+
+                            MDButton:
                                 id: stop_btn
-                                text: "Остановить"
                                 disabled: True
-                                text_color: app.c_muted
-                                line_color: app.c_muted
+                                md_bg_color: (0, 0, 0, 0)
                                 on_release: app.stop_operation()
+
+                                MDButtonText:
+                                    text: "Остановить"
+                                    text_color: app.c_muted
 
                         ThemedCard:
                             spacing: dp(4)
@@ -401,10 +512,10 @@ KV = r'''
                                     theme_text_color: "Secondary"
                                     halign: "right"
 
-                            MDProgressBar:
+                            MDLinearProgressIndicator:
                                 id: progress
                                 value: 0
-                                max: 100
+                                max: 1.0
                                 size_hint_y: None
                                 height: dp(4)
 
@@ -434,6 +545,7 @@ KV = r'''
                                     on_release: app.clear_log()
 
                             MDScrollView:
+                                id: log_scroll
                                 do_scroll_x: False
                                 size_hint_y: None
                                 height: dp(140)
@@ -456,12 +568,7 @@ KV = r'''
             MDBoxLayout:
                 orientation: "vertical"
 
-                MDTopAppBar:
-                    title: "Настройки"
-                    type: "top"
-                    anchor_title: "left"
-                    md_bg_color: app.c_bg
-                    left_action_items: [["arrow-left", lambda x: app.switch_screen("main")]]
+                SettingsHeader:
 
                 MDScrollView:
                     do_scroll_x: False
@@ -487,14 +594,17 @@ KV = r'''
                             MDTextField:
                                 id: user_agent
                                 hint_text: "User-Agent"
-                                mode: "rectangle"
                                 size_hint_y: None
                                 height: dp(44)
                                 font_size: dp(14)
 
-                            AccentBtn:
-                                text: "Сохранить"
+                            MDButton:
+                                md_bg_color: app.c_accent
                                 on_release: app.save_settings_from_ui()
+
+                                MDButtonText:
+                                    text: "Сохранить"
+                                    text_color: 1, 1, 1, 1
 
                         MDLabel:
                             text: "Категории"
@@ -510,9 +620,15 @@ KV = r'''
                             spacing: dp(10)
                             adaptive_height: True
 
-                        SecBtn:
-                            text: "+ Добавить категорию"
+                        MDButton:
+                            size_hint_y: None
+                            height: dp(32)
+                            md_bg_color: (0, 0, 0, 0)
                             on_release: app.add_category()
+
+                            MDButtonText:
+                                text: "+ Добавить категорию"
+                                text_color: app.c_accent
 
                         Widget:
                             size_hint_y: None
@@ -580,26 +696,26 @@ class KivyGUIApp(MDApp):
         self._auth_mode = mode
         tab_login = self.root.ids.tab_login
         tab_register = self.root.ids.tab_register
+        tab_login_text = self.root.ids.tab_login_text
+        tab_register_text = self.root.ids.tab_register_text
+
         if mode == "login":
             tab_login.md_bg_color = self.c_accent
-            tab_login.text_color = (1, 1, 1, 1)
-            tab_login.line_color = self.c_accent
-            tab_login.font_size = dp(13)
+            tab_login_text.text_color = (1, 1, 1, 1)
             tab_register.md_bg_color = (0, 0, 0, 0)
-            tab_register.text_color = self.c_dim
-            tab_register.line_color = (0.2, 0.2, 0.2, 1)
-            tab_register.font_size = dp(12)
-            self.root.ids.auth_btn.text = "Войти"
+            tab_register_text.text_color = self.c_dim
         else:
             tab_register.md_bg_color = self.c_accent
-            tab_register.text_color = (1, 1, 1, 1)
-            tab_register.line_color = self.c_accent
-            tab_register.font_size = dp(13)
+            tab_register_text.text_color = (1, 1, 1, 1)
             tab_login.md_bg_color = (0, 0, 0, 0)
-            tab_login.text_color = self.c_dim
-            tab_login.line_color = (0.2, 0.2, 0.2, 1)
-            tab_login.font_size = dp(12)
-            self.root.ids.auth_btn.text = "Зарегистрироваться"
+            tab_login_text.text_color = self.c_dim
+
+        # Обновляем текст кнопки авторизации
+        auth_btn = self.root.ids.auth_btn
+        for c in auth_btn.children:
+            if isinstance(c, MDButtonText):
+                c.text = "Войти" if mode == "login" else "Зарегистрироваться"
+                break
 
     def _load_initial_state(self):
         settings = load_settings()
@@ -661,14 +777,14 @@ class KivyGUIApp(MDApp):
         if not self._loading_active:
             return
         dots = "." * (self._loading_dots % 4)
-        btn.text = f"{self._loading_text}{dots}"
+        _set_btn_text(btn, f"{self._loading_text}{dots}")
         self._loading_dots += 1
         Clock.schedule_once(lambda *_: self._animate_dots(btn), 0.5)
 
     def _auth_ok(self, btn):
         self._loading_active = False
         btn.disabled = False
-        btn.text = "Войти"
+        _set_btn_text(btn, "Войти")
         self._refresh_sub_url()
         self.switch_screen("main")
         self._toast("Успешный вход")
@@ -677,7 +793,7 @@ class KivyGUIApp(MDApp):
         self._loading_active = False
         btn.disabled = False
         # Восстанавливаем текст кнопки в зависимости от режима
-        btn.text = "Войти" if self._auth_mode == "login" else "Зарегистрироваться"
+        _set_btn_text(btn, "Войти" if self._auth_mode == "login" else "Зарегистрироваться")
         
         # Показываем диалог с ошибкой для большей наглядности
         self._show_error_dialog("Ошибка авторизации", msg)
@@ -692,9 +808,95 @@ class KivyGUIApp(MDApp):
 
     def copy_subscription_url(self):
         text = self.root.ids.sub_url_label.text
-        if text and "появится" not in text:
-            Clipboard.copy(text)
+        if not text or "появится" in text:
+            return
+
+        import os
+        is_wayland = os.environ.get("XDG_SESSION_TYPE") == "wayland"
+
+        # На Wayland пробуем wl-copy — единственный способ записать в системный буфер
+        if is_wayland:
+            import subprocess, shutil
+            if shutil.which("wl-copy"):
+                try:
+                    subprocess.run(["wl-copy", "--type", "text/plain"], input=text.encode("utf-8"), timeout=2)
+                    self._log("Ссылка скопирована", "success")
+                    self._toast("Скопировано")
+                    return
+                except Exception:
+                    pass
+            # Нет wl-copy — показываем диалог
+            self._show_copy_dialog(text)
+            return
+
+        # X11 — tkinter работает
+        try:
+            import tkinter as tk
+            root = tk.Tk()
+            root.withdraw()
+            root.clipboard_clear()
+            root.clipboard_append(text)
+            root.update()
+            root.destroy()
+            self._log("Ссылка скопирована", "success")
             self._toast("Скопировано")
+        except Exception as e:
+            self._log(f"Ошибка копирования: {e}", "error")
+            self._show_copy_dialog(text)
+
+    def _show_copy_dialog(self, text: str):
+        """Показать диалог с ссылкой для ручного копирования."""
+        from kivymd.uix.dialog import MDDialog
+        from kivy.uix.scrollview import ScrollView
+        from kivy.uix.textinput import TextInput
+        from kivy.metrics import dp
+
+        dialog = MDDialog(
+            title="Скопируйте ссылку",
+            type="custom",
+            size_hint_x=0.9,
+            auto_dismiss=True,
+            buttons=[
+                _mk_btn("Закрыть", on_release=lambda x: dialog.dismiss(), bg_color=self.c_accent),
+            ],
+        )
+
+        scroll = ScrollView(size_hint=(1, None), height=dp(80))
+        text_input = TextInput(
+            text=text,
+            readonly=True,
+            size_hint_y=None,
+            height=dp(80),
+            font_size=dp(12),
+            background_color=(0.1, 0.1, 0.15, 1),
+            foreground_color=(0.9, 0.9, 0.9, 1),
+            cursor_color=(0.55, 0.36, 0.96, 1),
+        )
+        scroll.add_widget(text_input)
+
+        label = MDLabel(
+            text="Установите wl-clipboard для автокопирования:\n[color=#8b5cf6]sudo apt install wl-clipboard[/color]",
+            theme_text_color="Custom",
+            text_color=(0.6, 0.6, 0.65, 1),
+            markup=True,
+            halign="center",
+            size_hint_y=None,
+            height=dp(40),
+            font_size=dp(12),
+        )
+
+        container = MDBoxLayout(
+            orientation="vertical",
+            size_hint_y=None,
+            adaptive_height=True,
+            spacing=dp(8),
+            padding=dp(10),
+        )
+        container.add_widget(scroll)
+        container.add_widget(label)
+
+        dialog.add_widget(container)
+        dialog.open()
 
     def open_bot_link(self, *args):
         webbrowser.open("https://t.me/arqvpn_bot")
@@ -733,7 +935,7 @@ class KivyGUIApp(MDApp):
             tasks.append({
                 "name": name, "type": card['type_var'], "urls": urls,
                 "raw_files": raw_files,
-                "target_url": card['target'].text.strip() or "https://google.com",
+                "target_url": card['target'].text.strip() or "https://www.google.com/generate_204",
                 "max_ping_ms": max_ping, "required_count": req_count,
                 "profile_title": profile,
                 "out_file": os.path.join(RESULTS_DIR, f"top_{out_name}.txt"),
@@ -778,20 +980,20 @@ class KivyGUIApp(MDApp):
                 break
 
     def _mk_input(self, hint="", height=dp(40), text=""):
-        w = MDTextField(hint_text=hint, mode="rectangle", size_hint_y=None,
+        w = MDTextField(hint_text=hint, size_hint_y=None,
                         height=height, font_size=dp(15), multiline=False)
         w.text = text
         return w
 
     def _mk_small(self, width, hint="", text=""):
-        w = MDTextField(hint_text=hint, mode="rectangle", size_hint_x=None, width=width,
+        w = MDTextField(hint_text=hint, size_hint_x=None, width=width,
                         height=dp(40), font_size=dp(15), multiline=False)
         w.text = text
         return w
 
     def _add_category_card(self, data=None):
         if data is None:
-            data = {"name": "", "type": "xray", "urls": [""], "target_url": "https://google.com",
+            data = {"name": "", "type": "xray", "urls": [""], "target_url": "https://www.google.com/generate_204",
                     "max_ping_ms": 9000, "required_count": 10, "profile_title": ""}
 
         box = self.root.ids.categories_box
@@ -819,16 +1021,20 @@ class KivyGUIApp(MDApp):
 
         def make_btn(val, text):
             is_active = card['type_var'] == val
-            btn = MDFlatButton(text=text, theme_text_color="Custom",
-                               text_color=(1,1,1,1) if is_active else self.c_muted,
-                               md_bg_color=self.c_accent if is_active else (0.1,0.1,0.11,1),
-                               size_hint_y=None, height=dp(28))
+            btn = MDButton(
+                MDButtonText(
+                    text=text,
+                    text_color=(1,1,1,1) if is_active else self.c_muted,
+                ),
+                md_bg_color=self.c_accent if is_active else (0.1,0.1,0.11,1),
+                size_hint_y=None, height=dp(28),
+            )
             def _switch(*_):
                 card['type_var'] = val
                 for b in card['type_btns']:
                     a = card['type_var'] == b._val
                     b.md_bg_color = self.c_accent if a else (0.1,0.1,0.11,1)
-                    b.text_color = (1,1,1,1) if a else self.c_muted
+                    b.children[0].text_color = (1,1,1,1) if a else self.c_muted
             btn.bind(on_release=_switch)
             btn._val = val
             type_row.add_widget(btn)
@@ -847,12 +1053,20 @@ class KivyGUIApp(MDApp):
         for url in data.get("urls", [""]):
             self._add_url_row(url_container, card, url)
 
-        add_url = MDFlatButton(text="+ Добавить URL", theme_text_color="Custom",
-                               text_color=self.c_accent, size_hint_y=None, height=dp(24))
+        add_url = MDButton(
+            MDButtonText(
+                text="+ Добавить URL",
+                text_color=self.c_accent,
+            ),
+            size_hint_x=None,
+            width=dp(140),
+            height=dp(30),
+            md_bg_color=(0, 0, 0, 0),
+        )
         add_url.bind(on_release=lambda *_: self._add_url_row(url_container, card, ""))
         frame.add_widget(add_url)
 
-        target = self._mk_input("Целевой URL", dp(40), data.get("target_url", "https://google.com"))
+        target = self._mk_input("Целевой URL", dp(40), data.get("target_url", "https://www.google.com/generate_204"))
         card['target'] = target
         frame.add_widget(target)
 
@@ -876,8 +1090,16 @@ class KivyGUIApp(MDApp):
         card['profile'] = profile
         frame.add_widget(profile)
 
-        del_btn = MDFlatButton(text="Удалить", theme_text_color="Custom", text_color=(0.937,0.267,0.267,1),
-                               size_hint_y=None, height=dp(26))
+        del_btn = MDButton(
+            MDButtonText(
+                text="Удалить",
+                text_color=(0.937, 0.267, 0.267, 1),
+            ),
+            size_hint_x=None,
+            width=dp(90),
+            height=dp(32),
+            md_bg_color=(0, 0, 0, 0),
+        )
         def _delete(*_):
             if card in self._category_cards:
                 self._category_cards.remove(card)
@@ -954,6 +1176,12 @@ class KivyGUIApp(MDApp):
     def clear_log(self):
         self.root.ids.log_label.text = ""
 
+    def _scroll_to_bottom(self, *args):
+        """Прокрутить журнал событий вниз."""
+        scroll = self.root.ids.log_scroll
+        if scroll and scroll.height > 0:
+            scroll.scroll_y = 0
+
     def _log(self, message: str, tag: str = "info"):
         skip = ("Тестирование ", "Тестирую ")
         if any(message.startswith(p) for p in skip):
@@ -966,13 +1194,15 @@ class KivyGUIApp(MDApp):
         lbl = self.root.ids.log_label
         lbl.text = f"{lbl.text}\n{icon} {message}" if lbl.text else f"{icon} {message}"
         lbl.text = lbl.text[-4000:]
+        Clock.schedule_once(self._scroll_to_bottom, 0.05)
 
     def _threadsafe_log(self, msg: str, tag: str = "info"):
         Clock.schedule_once(lambda *_: self._log(msg, tag), 0)
 
     # ─── Прогресс ──────────────────────────────────────────────
     def _set_progress(self, value: float):
-        self.root.ids.progress.value = max(0, min(100, value))
+        """Устанавливает прогресс (0-100 конвертируется в 0-1)."""
+        self.root.ids.progress.value = max(0, min(1.0, value / 100.0))
 
     def update_progress(self, current, total, suitable=0, required=0):
         if required > 0:
@@ -983,7 +1213,7 @@ class KivyGUIApp(MDApp):
             self.root.ids.progress_label.text = f"{int(pct*100)}%"
         else:
             pct = 0
-        self._set_progress(pct)
+        self._set_progress(pct * 100)
 
     def _threadsafe_progress(self, current, total, *_):
         if total <= 0:
@@ -994,20 +1224,21 @@ class KivyGUIApp(MDApp):
     def _enable_control_buttons(self, running: bool):
         stop = self.root.ids.stop_btn
         skip = self.root.ids.skip_btn
+
+        def _set_btn_state(btn, enabled, fg_color, bg_color):
+            btn.disabled = not enabled
+            btn.md_bg_color = bg_color
+            for c in btn.children:
+                if isinstance(c, MDButtonText):
+                    c.text_color = fg_color
+                    break
+
         if running:
-            stop.disabled = False
-            stop.text_color = RED
-            stop.line_color = RED
-            skip.disabled = False
-            skip.text_color = YELLOW
-            skip.line_color = YELLOW
+            _set_btn_state(stop, True, tuple(RED) + (1,), tuple(RED) + (0.2,))
+            _set_btn_state(skip, True, tuple(YELLOW) + (1,), tuple(YELLOW) + (0.2,))
         else:
-            stop.disabled = True
-            stop.text_color = self.c_muted
-            stop.line_color = self.c_muted
-            skip.disabled = True
-            skip.text_color = self.c_muted
-            skip.line_color = self.c_muted
+            _set_btn_state(stop, False, self.c_muted, (0, 0, 0, 0))
+            _set_btn_state(skip, False, self.c_muted, (0, 0, 0, 0))
         self.root.ids.start_btn.disabled = running
 
     # ─── Скачивание ────────────────────────────────────────────
@@ -1058,6 +1289,8 @@ class KivyGUIApp(MDApp):
                 if self._stop_event.is_set():
                     break
                 task_names.append(t['name'])
+                Clock.schedule_once(lambda *_v, name=t['name']: setattr(
+                    self.root.ids.progress_label, 'text', f"Тестирование: {name}"), 0)
                 self._threadsafe_log(f"[{i}/{len(sel)}] {t['name']}")
                 self._test_task(t)
                 Clock.schedule_once(lambda *_v, p=(i/len(sel))*100: self._set_progress(p), 0)
@@ -1082,7 +1315,7 @@ class KivyGUIApp(MDApp):
                 configs=configs, target_url=task["target_url"],
                 max_ping_ms=task["max_ping_ms"], required_count=task["required_count"],
                 xray_path=XRAY_BIN, out_file=task["out_file"],
-                profile_title=task.get("profile_title"), config_type=task.get("type"),
+                profile_title=task.get("profile_title"), config_type=task.get("name"),
                 log_func=self._threadsafe_log, progress_func=self._threadsafe_progress,
                 stop_flag=self._stop_event)
             self._threadsafe_log(f"{task['name']}: ok={w}, pass={p}, fail={f}", "success" if p > 0 else "warning")
@@ -1097,7 +1330,8 @@ class KivyGUIApp(MDApp):
             w, p, f = test_mtproto_configs(
                 configs=configs, max_ping_ms=task["max_ping_ms"],
                 required_count=task["required_count"], out_file=task["out_file"],
-                profile_title=task.get("profile_title"), log_func=self._threadsafe_log,
+                profile_title=task.get("profile_title"), config_type=task.get("name"),
+                log_func=self._threadsafe_log,
                 progress_func=lambda c, t: self._threadsafe_progress(c, t, 0, 0),
                 stop_flag=self._stop_event)
             self._threadsafe_log(f"{task['name']}: ok={w}, pass={p}, fail={f}", "success" if p > 0 else "warning")
@@ -1144,7 +1378,6 @@ class KivyGUIApp(MDApp):
             """Показывает диалог при сетевой неудаче."""
             try:
                 from kivymd.uix.dialog import MDDialog
-                from kivymd.uix.button import MDRaisedButton, MDFlatButton
 
                 def _on_retry(*_):
                     dlg.dismiss()
@@ -1154,8 +1387,8 @@ class KivyGUIApp(MDApp):
                     title="Обновление подписки",
                     text="Обновление не удалось. Возможно, у вас работают белые списки. Подключитесь к стабильной сети и повторите попытку.",
                     buttons=[
-                        MDFlatButton(text="Отмена", on_release=lambda *_: dlg.dismiss()),
-                        MDRaisedButton(text="Повторить", on_release=_on_retry),
+                        _mk_btn("Отмена", on_release=lambda *_: dlg.dismiss()),
+                        _mk_btn("Повторить", on_release=_on_retry, bg_color=self.c_accent),
                     ],
                 )
                 dlg.open()
@@ -1200,7 +1433,6 @@ class KivyGUIApp(MDApp):
         # Используем MDDialog из KivyMD
         try:
             from kivymd.uix.dialog import MDDialog
-            from kivymd.uix.button import MDRaisedButton, MDFlatButton
 
             def _on_yes(*_):
                 dlg.dismiss()
@@ -1214,8 +1446,8 @@ class KivyGUIApp(MDApp):
                 title="Подписка",
                 text="Обновить вашу подписку на сервере?",
                 buttons=[
-                    MDFlatButton(text="Нет", on_release=_on_no),
-                    MDRaisedButton(text="Да", on_release=_on_yes),
+                    _mk_btn("Нет", on_release=_on_no),
+                    _mk_btn("Да", on_release=_on_yes, bg_color=self.c_accent),
                 ],
             )
             dlg.open()
@@ -1278,7 +1510,7 @@ class KivyGUIApp(MDApp):
     def _toast(self, text: str):
         try:
             from kivymd.uix.snackbar import Snackbar
-            Snackbar(text=text, duration=1.5).open()
+            Snackbar(text=text, timeout=1.5).open()
         except Exception:
             pass
 
@@ -1286,18 +1518,12 @@ class KivyGUIApp(MDApp):
         """Показывает модальный диалог с ошибкой."""
         try:
             from kivymd.uix.dialog import MDDialog
-            from kivymd.uix.button import MDFlatButton
-            
+
             dlg = MDDialog(
                 title=title,
                 text=message,
                 buttons=[
-                    MDFlatButton(
-                        text="OK",
-                        md_bg_color=self.c_accent,
-                        text_color=(1, 1, 1, 1),
-                        on_release=lambda *_: dlg.dismiss()
-                    ),
+                    _mk_btn("OK", on_release=lambda *_: dlg.dismiss(), bg_color=self.c_accent),
                 ],
             )
             dlg.open()

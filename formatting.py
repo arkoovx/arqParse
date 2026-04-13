@@ -49,10 +49,16 @@ def format_config_name(url: str, index: int, config_type: str = "Base VPN", ping
         emoji = fragment[0]
 
     # Формируем название с номером
-    if config_type == "Bypass VPN":
+    # Определяем "Обход" по названию задачи или типу
+    is_bypass = (
+        config_type and (
+            "bypass" in config_type.lower() or
+            "обход" in config_type.lower()
+        )
+    )
+    if is_bypass:
         name_suffix = f"arq-Обход-{index}"
     else:
-        # Для Base VPN и Telegram MTProto
         name_suffix = f"arq-{index}"
 
     # Добавляем молнию если пинг < 100 мс
