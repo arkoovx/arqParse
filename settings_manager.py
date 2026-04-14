@@ -41,6 +41,20 @@ def load_settings():
             data["tasks"] = defaults["tasks"]
         if "user_agent" not in data:
             data["user_agent"] = defaults["user_agent"]
+        
+        # Валидация числовых полей в задачах
+        DEFAULT_MAX_PING = 9000
+        DEFAULT_REQUIRED_COUNT = 10
+        for task in data.get("tasks", []):
+            try:
+                task["max_ping_ms"] = int(task.get("max_ping_ms", DEFAULT_MAX_PING))
+            except (ValueError, TypeError):
+                task["max_ping_ms"] = DEFAULT_MAX_PING
+            try:
+                task["required_count"] = int(task.get("required_count", DEFAULT_REQUIRED_COUNT))
+            except (ValueError, TypeError):
+                task["required_count"] = DEFAULT_REQUIRED_COUNT
+        
         return data
     except (json.JSONDecodeError, KeyError):
         return _default_settings()
@@ -50,6 +64,13 @@ def save_settings(data):
     """Сохраняет настройки в файл."""
     with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+def reset_to_defaults():
+    """Сбрасывает настройки до значений по умолчанию."""
+    defaults = _default_settings()
+    save_settings(defaults)
+    return defaults
 
 
 def get_tasks():

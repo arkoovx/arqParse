@@ -277,7 +277,7 @@ import auth as auth_module
 from config import RESULTS_DIR, XRAY_BIN
 from downloader import download_all_tasks
 from parser import read_configs_from_file, read_mtproto_from_file
-from settings_manager import get_tasks, load_settings, save_settings
+from settings_manager import get_tasks, load_settings, save_settings, reset_to_defaults
 from testers import test_xray_configs
 from testers_mtproto import test_mtproto_configs
 
@@ -776,6 +776,14 @@ KV = r'''
                                     text: "Сохранить"
                                     text_color: 1, 1, 1, 1
 
+                            MDButton:
+                                md_bg_color: (0, 0, 0, 0)
+                                on_release: app.reset_settings_to_defaults()
+
+                                MDButtonText:
+                                    text: "Восстановить по умолчанию"
+                                    text_color: app.c_dim
+
                         MDLabel:
                             text: "Категории"
                             bold: True
@@ -883,7 +891,7 @@ class KivyGUIApp(MDApp):
         self.tasks = get_tasks()
         self.root.ids.user_agent.text = settings.get("user_agent", "")
         self._render_task_checkboxes()
-        self._render_categories()
+        self._render_categories(settings)
         # Убираем adv_container из дерева при старте
         parent = self.root.ids.main_content
         if self.root.ids.adv_container.parent is not None:
@@ -1025,20 +1033,19 @@ class KivyGUIApp(MDApp):
 
     def _show_copy_dialog(self, text: str):
         """Показать диалог с ссылкой для ручного копирования."""
-        from kivymd.uix.dialog import MDDialog
+        from kivymd.uix.dialog import (
+            MDDialog,
+            MDDialogHeadlineText,
+            MDDialogSupportingText,
+            MDDialogButtonContainer,
+            MDDialogContentContainer,
+        )
         from kivy.uix.scrollview import ScrollView
         from kivy.uix.textinput import TextInput
-        from kivy.metrics import dp
+        from kivymd.uix.button import MDButton, MDButtonText
 
-        dialog = MDDialog(
-            title="Скопируйте ссылку",
-            type="custom",
-            size_hint_x=0.9,
-            auto_dismiss=True,
-            buttons=[
-                _mk_btn("Закрыть", on_release=lambda x: dialog.dismiss(), bg_color=self.c_accent),
-            ],
-        )
+        def _on_close(*_):
+            dialog.dismiss()
 
         scroll = ScrollView(size_hint=(1, None), height=dp(80))
         text_input = TextInput(
@@ -1074,7 +1081,15 @@ class KivyGUIApp(MDApp):
         container.add_widget(scroll)
         container.add_widget(label)
 
-        dialog.add_widget(container)
+        dialog = MDDialog(
+            MDDialogHeadlineText(text="Скопируйте ссылку"),
+            MDDialogContentContainer(container),
+            MDDialogButtonContainer(
+                MDButton(MDButtonText(text="Закрыть"), on_release=_on_close, md_bg_color=self.c_accent),
+            ),
+            size_hint_x=0.9,
+            auto_dismiss=True,
+        )
         dialog.open()
 
     def open_bot_link(self, *args):
@@ -1124,7 +1139,17 @@ class KivyGUIApp(MDApp):
         save_settings(data)
         self.tasks = get_tasks()
         self._render_task_checkboxes()
+        self._render_categories()
         self._toast("Сохранено")
+
+    def reset_settings_to_defaults(self):
+        """Сбрасывает настройки до значений по умолчанию."""
+        defaults = reset_to_defaults()
+        self.tasks = get_tasks()
+        self._render_task_checkboxes()
+        self._render_categories(defaults)
+        self.root.ids.user_agent.text = defaults.get("user_agent", "")
+        self._toast("Настройки восстановлены")
 
     # ─── Чекбоксы ──────────────────────────────────────────────
     def _render_task_checkboxes(self):
@@ -1143,11 +1168,12 @@ class KivyGUIApp(MDApp):
             box.add_widget(row)
 
     # ─── Категории ─────────────────────────────────────────────
-    def _render_categories(self):
+    def _render_categories(self, settings=None):
         box = self.root.ids.categories_box
         box.clear_widgets()
         self._category_cards.clear()
-        settings = load_settings()
+        if settings is None:
+            settings = load_settings()
         for td in settings.get("tasks", []):
             self._add_category_card(td)
 
@@ -1503,7 +1529,8 @@ class KivyGUIApp(MDApp):
                 return
             w, p, f = test_mtproto_configs(
                 configs=configs, max_ping_ms=task["max_ping_ms"],
-                required_count=task["required_count"], out_file=task["out_file"],
+                required_count=task["required_count"], max_workers=30,
+                out_file=task["out_file"],
                 profile_title=task.get("profile_title"), config_type=task.get("name"),
                 log_func=self._threadsafe_log,
                 progress_func=lambda c, t: self._threadsafe_progress(c, t, 0, 0),
@@ -1551,19 +1578,32 @@ class KivyGUIApp(MDApp):
         def _ask_retry():
             """Показывает диалог при сетевой неудаче."""
             try:
-                from kivymd.uix.dialog import MDDialog
+                from kivymd.uix.dialog import (
+                    MDDialog,
+                    MDDialogHeadlineText,
+                    MDDialogSupportingText,
+                    MDDialogButtonContainer,
+                )
+                from kivymd.uix.button import MDButton, MDButtonText
 
                 def _on_retry(*_):
                     dlg.dismiss()
                     self._upload_subscription(tested_tasks=tested_tasks)
 
+                def _on_cancel(*_):
+                    dlg.dismiss()
+
                 dlg = MDDialog(
-                    title="Обновление подписки",
-                    text="Обновление не удалось. Возможно, у вас работают белые списки. Подключитесь к стабильной сети и повторите попытку.",
-                    buttons=[
-                        _mk_btn("Отмена", on_release=lambda *_: dlg.dismiss()),
-                        _mk_btn("Повторить", on_release=_on_retry, bg_color=self.c_accent),
-                    ],
+                    MDDialogHeadlineText(text="Обновление подписки"),
+                    MDDialogSupportingText(
+                        text="Обновление не удалось. Возможно, у вас работают белые списки. Подключитесь к стабильной сети и повторите попытку.",
+                    ),
+                    MDDialogButtonContainer(
+                        MDButton(MDButtonText(text="Отмена"), on_release=_on_cancel),
+                        MDButton(MDButtonText(text="Повторить"), on_release=_on_retry, md_bg_color=self.c_accent),
+                        spacing="4dp",
+                    ),
+                    auto_dismiss=False,
                 )
                 dlg.open()
             except Exception:
@@ -1595,38 +1635,73 @@ class KivyGUIApp(MDApp):
 
     def _ask_update_sub_or_open_folder(self, tested_tasks=None):
         """После теста спрашивает: обновить подписку. Если нет — открыть папку."""
+        print(f"[DEBUG] _ask_update_sub_or_open_folder вызван")
         session = auth_module.get_session()
         username = session.get("username") if session else None
         if username == "admin":
+            print(f"[DEBUG] admin — открываю папку")
             self.open_results()
             return
         if not auth_module.is_logged_in():
+            print(f"[DEBUG] не залогинен — открываю папку")
             self.open_results()
             return
 
-        # Используем MDDialog из KivyMD
         try:
-            from kivymd.uix.dialog import MDDialog
+            from kivymd.uix.dialog import (
+                MDDialog,
+                MDDialogHeadlineText,
+                MDDialogSupportingText,
+                MDDialogButtonContainer,
+            )
+            from kivymd.uix.button import MDButton, MDButtonText
+
+            print(f"[DEBUG] Создаю диалог...")
 
             def _on_yes(*_):
+                print(f"[DEBUG] Нажата кнопка Да")
                 dlg.dismiss()
                 self._upload_subscription(tested_tasks=tested_tasks)
 
             def _on_no(*_):
+                print(f"[DEBUG] Нажата кнопка Нет")
                 dlg.dismiss()
                 self.open_results()
 
             dlg = MDDialog(
-                title="Подписка",
-                text="Обновить вашу подписку на сервере?",
-                buttons=[
-                    _mk_btn("Нет", on_release=_on_no),
-                    _mk_btn("Да", on_release=_on_yes, bg_color=self.c_accent),
-                ],
+                MDDialogHeadlineText(
+                    text="Обновить подписку?",
+                ),
+                MDDialogSupportingText(
+                    text="Обновить вашу подписку на сервере?",
+                ),
+                MDDialogButtonContainer(
+                    MDButton(
+                        MDButtonText(text="Нет"),
+                        on_release=_on_no,
+                    ),
+                    MDButton(
+                        MDButtonText(text="Да"),
+                        on_release=_on_yes,
+                        md_bg_color=self.c_accent,
+                    ),
+                    spacing="4dp",
+                ),
+                auto_dismiss=False,
             )
+
+            def _on_dlg_dismiss(*_):
+                print(f"[DEBUG] Диалог закрыт")
+
+            dlg.bind(on_dismiss=_on_dlg_dismiss)
+
+            print(f"[DEBUG] Открываю диалог...")
             dlg.open()
-        except Exception:
-            # Fallback — просто открываем папку
+            print(f"[DEBUG] Диалог открыт")
+        except Exception as e:
+            print(f"[DEBUG] Ошибка диалога: {e}")
+            import traceback
+            traceback.print_exc()
             self.open_results()
 
     def merge_vpn_configs(self):
@@ -1700,23 +1775,8 @@ class KivyGUIApp(MDApp):
             pass
 
     def _show_toast(self, text: str):
-        """Показывает toast в главном потоке."""
-        try:
-            from kivymd.uix.snackbar import MDSnackbar, MDSnackbarSupportingText
-            sb = MDSnackbar(
-                MDSnackbarSupportingText(
-                    text=text,
-                    theme_text_color="Custom",
-                    text_color="#e4e4e7",
-                ),
-                y=0,
-                pos_hint={"center_x": 0.5},
-                size_hint_x=1.0,
-            )
-            sb.md_bg_color = [0.18, 0.18, 0.22, 1]
-            sb.open()
-        except Exception:
-            pass
+        """Показывает toast в главном потоке (алиас для _toast)."""
+        self._toast(text)
 
 
 def main():

@@ -11,7 +11,7 @@ from logger import log
 
 # Repository settings
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
-REPO_NAME = "arkoovx/arqParse"
+REPO_NAME = os.environ.get("REPO_NAME", "arkoovx/arqParse")
 
 # Time settings
 ZONE = zoneinfo.ZoneInfo("Europe/Moscow")

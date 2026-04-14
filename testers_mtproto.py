@@ -15,6 +15,7 @@ import socket
 import time
 import hashlib
 import threading
+import struct
 from typing import List, Tuple, Optional, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -152,6 +153,8 @@ def _test_single_mtproto_fast(url: str, recv_timeout: float, debug_log=None) -> 
         sock = None
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            # Отключение TIME_WAIT для предотвращения переполнения NAT таблицы роутера
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('ii', 1, 0))
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             sock.settimeout(max(recv_timeout / 2, 1.0))
             start = time.perf_counter()
@@ -196,6 +199,57 @@ def _test_single_mtproto_fast(url: str, recv_timeout: float, debug_log=None) -> 
 # Массовое тестирование
 # ──────────────────────────────────────────────────────────────────────────────
 
+def _collect_mtproto_results(
+    strong: List[Tuple[float, str]],
+    still_weak: List[Tuple[float, str]],
+    required_count: int,
+) -> List[Tuple[str, int, float]]:
+    """Собрать финальный список рабочих прокси из STRONG и WEAK."""
+    strong.sort(key=lambda x: x[0])
+    still_weak.sort(key=lambda x: x[0])
+
+    strong_urls_set = {u for _, u in strong}
+    final: List[Tuple[str, float]] = [(u, p) for p, u in strong[:required_count]]
+    remaining = required_count - len(final)
+    if remaining > 0 and still_weak:
+        for p, u in still_weak[:remaining]:
+            final.append((u, p))
+
+    return [(url, STRONG if url in strong_urls_set else WEAK, ping) for url, ping in final]
+
+
+def test_mtproto_configs_console(
+    configs: List[str],
+    max_ping_ms: float,
+    required_count: int,
+    max_workers: int = 100,
+    log_func: Callable = None,
+    progress_func: Callable = None,
+    profile_title: str = None,
+    config_type: str = None,
+    stop_flag=None,
+    skip_flag=None,
+) -> List[Tuple[str, int, float]]:
+    """
+    FAST+ MTProto тест для консольного режима.
+    Возвращает список кортежей: [(url, status, ping_ms), ...]
+    """
+    # Делегируем основную логику внутренней функции
+    result = _run_mtproto_tests(
+        configs=configs,
+        max_ping_ms=max_ping_ms,
+        required_count=required_count,
+        max_workers=max_workers,
+        log_func=log_func,
+        progress_func=progress_func,
+        stop_flag=stop_flag,
+        skip_flag=skip_flag,
+    )
+    return _collect_mtproto_results(
+        result['strong'], result['still_weak'], required_count
+    )
+
+
 def test_mtproto_configs(
     configs: List[str],
     max_ping_ms: float,
@@ -210,31 +264,96 @@ def test_mtproto_configs(
     skip_flag=None,
 ) -> Tuple[int, int, int]:
     """
-    FAST+ MTProto тест с приоритизацией STRONG > WEAK.
-
-    Логика:
-      1. WEAK НЕ считается для required_count
-      2. Поиск продолжается пока STRONG < required_count
-      3. После прогона — WEAK перепроверяются
-      4. Финал: STRONG[:required] + WEAK[:remaining]
+    FAST+ MTProto тест для GUI-режима.
+    Возвращает кортеж: (working, passed, failed)
     """
+    result = _run_mtproto_tests(
+        configs=configs,
+        max_ping_ms=max_ping_ms,
+        required_count=required_count,
+        max_workers=max_workers,
+        log_func=log_func,
+        progress_func=progress_func,
+        stop_flag=stop_flag,
+        skip_flag=skip_flag,
+    )
 
-    def _log(msg: str, tag: str = "info"):
+    strong = result['strong']
+    still_weak = result['still_weak']
+    processed = result['processed']
+    over_limit = result['over_limit']
+
+    final = _collect_mtproto_results(strong, still_weak, required_count)
+    strong_urls = {su for _, su in strong}
+    working = len(strong) + len(still_weak)
+    passed = len(final)
+    failed = processed - working - over_limit
+
+    # ── Сохранение в файл ────────────────────────────────────────────────
+    if final:
+        try:
+            dir_name = os.path.dirname(out_file)
+            if dir_name:
+                os.makedirs(dir_name, exist_ok=True)
+            with open(out_file, 'w', encoding='utf-8') as f:
+                f.write(f"#profile-title: {profile_title or 'arqVPN MTProto'}\n")
+                f.write("#profile-update-interval: 48\n")
+                f.write("#support-url: https://t.me/arqhub\n\n")
+                for idx, (url, status, ping_ms) in enumerate(final, 1):
+                    formatted_url = format_config_name(url, idx, config_type, ping_ms)
+                    f.write(f"{formatted_url}\n")
+            strong_in_final = sum(1 for u, _, _ in final if u in strong_urls)
+            weak_added = sum(1 for u, _, _ in final if u not in strong_urls)
+            if log_func:
+                log_func(f"✓ Сохранено {passed} конфигов (STRONG: {strong_in_final}, WEAK: {weak_added}) в {out_file}", "success")
+        except Exception as e:
+            if log_func:
+                log_func(f"Ошибка сохранения: {e}", "error")
+    else:
         if log_func:
+            log_func("Рабочих прокси не найдено", "warning")
+
+    return working, passed, failed
+
+
+# ─── Внутренняя функция с общей логикой тестирования ───────────────────────
+
+def _run_mtproto_tests(
+    configs: List[str],
+    max_ping_ms: float,
+    required_count: int,
+    max_workers: int,
+    log_func: Callable,
+    progress_func: Callable,
+    stop_flag,
+    skip_flag,
+) -> dict:
+    """
+    Общая логика MTProto тестирования. Возвращает dict с результатами.
+    """
+    def _log(msg: str, tag: str = "info"):
+        print(f"[{tag.upper()}] MTPROTO: {msg}")  # Terminal debug
+        if log_func:
+            # Не спамим фейлы в GUI чтобы не положить очередь событий Kivy
+            if tag == "error" and "FAIL" in msg:
+                return
             log_func(msg, tag)
 
     def _progress(current: int, total: int):
         if progress_func:
-            progress_func(current, total)
+            # Обновляем GUI не чаще чем раз в 50-100 ходов, чтобы не забить event loop
+            if current % 50 == 0 or current == total:
+                progress_func(current, total)
 
     try:
         _make_aes_ctr(b'\x00' * 32, b'\x00' * 16)
     except ImportError as e:
         _log(str(e), "error")
-        return (0, 0, len(configs)) if out_file is not None else []
+        return {'strong': [], 'still_weak': [], 'processed': len(configs), 'over_limit': 0}
 
     strong: List[Tuple[float, str]] = []   # (ping, url)
     weak: List[Tuple[float, str]] = []      # (ping, url)
+    over_limit = [0]                         # валидный ответ, но пинг > max_ping_ms
     total = len(configs)
     processed = [0]
     lock = threading.Lock()
@@ -245,14 +364,19 @@ def test_mtproto_configs(
         future_map = {executor.submit(_test_single_mtproto_fast, cfg, 2.0, None): cfg for cfg in configs}
 
         for future in as_completed(future_map):
-            if local_stop.is_set() or (stop_flag and stop_flag.is_set()):
+            if local_stop.is_set() or (stop_flag and stop_flag.is_set()) or (skip_flag and skip_flag.is_set()):
+                for f in future_map:
+                    f.cancel()
+                if skip_flag and skip_flag.is_set():
+                    local_stop.set()  # Чтобы сразу пропустить и Этап 2
                 break
             try:
                 status, ping_ms = future.result()
-            except Exception:
+            except Exception as e:
                 with lock:
                     processed[0] += 1
                 _progress(processed[0], total)
+                print(f"[DEBUG] MTPROTO Exception: {e}")
                 continue
 
             url = future_map[future]
@@ -268,12 +392,11 @@ def test_mtproto_configs(
                 elif status == WEAK and ping_ms <= max_ping_ms:
                     weak.append((ping_ms, url))
                     _log(f"~ WEAK   {ping_ms:.0f} мс  (в запасе: {len(weak)})", "warning")
-                    # WEAK НЕ останавливает поиск!
+                elif status in (STRONG, WEAK) and ping_ms > max_ping_ms:
+                    over_limit[0] += 1
+                    # Не спамим таймлимиты в GUI
                 else:
-                    _log("✗ FAIL", "error")
-
-        if local_stop.is_set():
-            executor.shutdown(wait=False, cancel_futures=True)
+                    _log(f"✗ FAIL {url[:60]}", "error")
 
     # ─── ЭТАП 2: Перепроверка WEAK (только если STRONG < required) ──────
     upgraded: List[Tuple[float, str]] = []
@@ -281,12 +404,25 @@ def test_mtproto_configs(
 
     if weak and len(strong) < required_count:
         _log(f"Перепроверка {len(weak)} WEAK прокси (STRONG={len(strong)} < {required_count})...", "info")
+        weak_total = len(weak)
+        weak_processed = 0
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_weak = {executor.submit(_test_single_mtproto_fast, u, 2.0, None): (p, u) for p, u in weak}
             for future in as_completed(future_weak):
+                if stop_flag and (stop_flag.is_set() or (skip_flag and skip_flag.is_set())):
+                    for f in future_weak:
+                        f.cancel()
+                    break
+                
+                weak_processed += 1
+                with lock:
+                    processed[0] += 1
+                _progress(processed[0], total)
+
                 try:
                     new_status, new_ping = future.result()
-                except Exception:
+                except Exception as e:
+                    print(f"[DEBUG] MTPROTO Phase 2 Exception: {e}")
                     still_weak.append(future_weak[future])
                     continue
                 if new_status == STRONG and new_ping <= max_ping_ms:
@@ -304,50 +440,12 @@ def test_mtproto_configs(
         _log(f"STRONG достаточно ({len(strong)}), WEAK перепроверка пропущена", "info")
         still_weak = weak
 
-    # ─── Финальная сборка ───────────────────────────────────────────────
-    strong.sort(key=lambda x: x[0])
-    still_weak.sort(key=lambda x: x[0])
-
-    final: List[Tuple[str, float]] = [(u, p) for p, u in strong[:required_count]]
-    remaining = required_count - len(final)
-    weak_added = 0
-    if remaining > 0 and still_weak:
-        for p, u in still_weak[:remaining]:
-            final.append((u, p))
-            weak_added += 1
-
-    # ── GUI-режим ────────────────────────────────────────────────────────
-    if out_file is not None:
-        # strong уже включает upgraded, still_weak — weak без upgrade
-        working = len(strong) + len(still_weak)
-        passed = len(final)
-        failed = processed[0] - working
-
-        if final:
-            try:
-                dir_name = os.path.dirname(out_file)
-                if dir_name:
-                    os.makedirs(dir_name, exist_ok=True)
-                with open(out_file, 'w', encoding='utf-8') as f:
-                    f.write(f"#profile-title: {profile_title or 'arqVPN MTProto'}\n")
-                    f.write("#profile-update-interval: 48\n")
-                    f.write("#support-url: https://t.me/arqhub\n\n")
-                    for idx, (url, ping_ms) in enumerate(final, 1):
-                        formatted_url = format_config_name(url, idx, config_type, ping_ms)
-                        f.write(f"{formatted_url}\n")
-                strong_urls = {su for _, su in strong}
-                strong_in_final = sum(1 for u, _ in final if u in strong_urls)
-                _log(f"✓ Сохранено {passed} конфигов (STRONG: {strong_in_final}, WEAK: {weak_added}) в {out_file}", "success")
-            except Exception as e:
-                _log(f"Ошибка сохранения: {e}", "error")
-        else:
-            _log("Рабочих прокси не найдено", "warning")
-
-        return working, passed, failed
-
-    # ── Консольный режим ─────────────────────────────────────────────────
-    strong_urls = {u for _, u in strong}
-    return [(url, STRONG if url in strong_urls else WEAK, ping) for url, ping in final]
+    return {
+        'strong': strong,
+        'still_weak': still_weak,
+        'processed': processed[0],
+        'over_limit': over_limit[0],
+    }
 
 
 test_mtproto_configs_and_save = test_mtproto_configs

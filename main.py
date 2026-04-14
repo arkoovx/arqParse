@@ -18,7 +18,7 @@ from config import TASKS, XRAY_BIN, RESULTS_DIR
 from downloader import download_all_tasks
 from parser import read_configs_from_file, read_mtproto_from_file
 from testers import test_xray_configs
-from testers_mtproto import test_mtproto_configs
+from testers_mtproto import test_mtproto_configs_console
 from formatting import format_config_name, _url_key
 from setup_xray import ensure_xray
 from ui import (
@@ -134,12 +134,13 @@ def _test_mtproto_task(task: dict) -> list:
     print(f"  {Colors.DIM}(Нажмите Ctrl+C для пропуска){Colors.RESET}\n")
 
     try:
-        results = test_mtproto_configs(
+        results = test_mtproto_configs_console(
             configs=configs,
             max_ping_ms=task['max_ping_ms'],
             required_count=task['required_count']
         )
-        return results
+        # results: [(url, status, ping_ms), ...]
+        return [(url, ping_ms) for url, _, ping_ms in results]
     except KeyboardInterrupt:
         print(f"\n  {Colors.YELLOW}⚠ Тестирование прервано{Colors.RESET}")
         return []

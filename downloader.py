@@ -1,12 +1,13 @@
 """Модуль для скачивания конфигов."""
 
+import html
 import os
-import re
 import time
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from config import CHROME_UA
+from parser import _split_glued_entries, _CONFIG_START_PATTERN
 
 
 def get_file_age_hours(filepath: str) -> float:
@@ -16,7 +17,7 @@ def get_file_age_hours(filepath: str) -> float:
     
     mtime = os.path.getmtime(filepath)
     age = time.time() - mtime
-    return age / 3600  # Конвертируем в часы
+    return age / 3600
 
 
 def clean_config_content(content: str) -> str:
@@ -25,71 +26,11 @@ def clean_config_content(content: str) -> str:
     - Заменяет HTML-сущности (&amp; -> &, &lt; -> <, и т.д.)
     - Склеивает разорванные строки конфигов
     - Разделяет склеенные конфиги (когда несколько URL соединены без переноса)
-    - Корректно обрабатывает \r\n (Windows) и \n (Unix) окончания строк
     """
-    # Нормализуем окончания строк (Windows \r\n -> Unix \n)
     content = content.replace('\r\n', '\n').replace('\r', '\n')
-
-    # Заменяем HTML-сущности
-    content = content.replace('&amp;', '&')
-    content = content.replace('&lt;', '<')
-    content = content.replace('&gt;', '>')
-    content = content.replace('&quot;', '"')
-    content = content.replace('&#39;', "'")
-
-    # Склеиваем разорванные строки и разделяем склеенные конфиги
-    lines = content.split('\n')
-    cleaned_lines = []
-    current_line = ''
-
-    # Важно: hysteria2 должен идти перед hysteria, чтобы избежать частичного совпадения
-    config_start_pattern = re.compile(r'(vless|vmess|trojan|ssr|ss|hysteria2|hy2|hysteria|tuic)://')
-
-    for line in lines:
-        stripped = line.strip()
-        if not stripped:
-            continue
-
-        # Проверяем, содержит ли строка начало нового конфига
-        matches = list(config_start_pattern.finditer(stripped))
-        
-        if len(matches) > 1:
-            # Если есть накопленная строка - сохраняем
-            if current_line:
-                cleaned_lines.append(current_line)
-                current_line = ''
-            
-            # Разделяем склеенные конфиги
-            for i, match in enumerate(matches):
-                start = match.start()
-                if i + 1 < len(matches):
-                    end = matches[i + 1].start()
-                    cleaned_lines.append(stripped[start:end])
-                else:
-                    # Последний матч - начинаем новую накопленную строку
-                    current_line = stripped[start:]
-        elif len(matches) == 1:
-            match = matches[0]
-            if match.start() == 0:
-                # Строка начинается с конфига
-                if current_line:
-                    cleaned_lines.append(current_line)
-                current_line = stripped
-            else:
-                # Конфиг в середине строки - это продолжение + новый конфиг
-                current_line += stripped[:match.start()]
-                if current_line.strip():
-                    cleaned_lines.append(current_line.strip())
-                current_line = stripped[match.start():]
-        else:
-            # Это продолжение предыдущей строки - склеиваем
-            current_line += stripped
-
-    # Не забываем последнюю строку
-    if current_line:
-        cleaned_lines.append(current_line)
-
-    return '\n'.join(cleaned_lines)
+    content = html.unescape(content)
+    lines = _split_glued_entries(content, _CONFIG_START_PATTERN)
+    return '\n'.join(lines)
 
 
 def _create_session_with_retries() -> requests.Session:
@@ -125,7 +66,9 @@ def download_file(url: str, filepath: str, max_age_hours: int = 24, force: bool 
             return True
 
     # Создаем директорию если не существует
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    dir_name = os.path.dirname(filepath)
+    if dir_name:
+        os.makedirs(dir_name, exist_ok=True)
 
     try:
         _log(f"Скачивание {os.path.basename(filepath)}...", "info")

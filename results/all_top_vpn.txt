@@ -1,19 +1,23 @@
 #profile-update-interval: 48
 #support-url: https://t.me/arqhub
 
-trojan://humanity@172.67.180.92:443?security=tls&sni=www.multiplydose.com&type=ws&host=www.multiplydose.com&path=/assignment#arq-1
-trojan://humanity@104.18.32.47:443?security=tls&sni=www.multiplydose.com&type=ws&host=www.multiplydose.com&path=/assignment#arq-2
-trojan://humanity@188.114.98.0:443?security=tls&sni=www.creationlong.org&type=ws&host=www.creationlong.org&path=/assignment#arq-3
-trojan://humanity@188.114.98.0:443?path=/assignment&security=tls&host=www.creationlong.org&type=ws&sni=www.creationlong.org#arq-4
-trojan://humanity@172.64.152.23:443?security=tls&sni=www.calmlunch.com&type=ws&host=www.calmlunch.com&path=/assignment#arq-5
-ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTo3ZTczMWVjMy1mOGUxLTQzZjYtOTJjZi0zOTc4ZDE0NzA1YzRAcjNtcmNnMDAxMTM3bTVhLmN5YmVydmVuYS5jb206NTAwOTk=#arq-6
-trojan://humanity@www.multiplydose.com:443?allowInsecure=1&path=/assignment&type=ws#🐵 arq-7
-trojan://humanity@188.114.98.0:443?path=/assignment&security=tls&host=www.creationlong.org&type=ws&sni=www.creationlong.org#arq-8
-ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTo3ZTczMWVjMy1mOGUxLTQzZjYtOTJjZi0zOTc4ZDE0NzA1YzQ=@36.224.188.221:50099#arq-9
-vmess://eyJhZGQiOiIxNTIuNjcuOC4yMDUiLCJhaWQiOiIwIiwiYWxwbiI6IiIsImZwIjoiIiwiaG9zdCI6IiIsImlkIjoiOWRiNGM3MDgtYWVmOC00MzU5LTgyMWItMzhlNDc5OTBiZTBkIiwibmV0Ijoid3MiLCJwYXRoIjoiLyIsInBvcnQiOiI4MCIsInBzIjoi8J+HrvCfh7MiLCJzY3kiOiJhdXRvIiwic25pIjoiIiwidGxzIjoiIiwidHlwZSI6Ii0tLSIsInYiOiIyIn0=#arq-10
-vless://fc625795-792d-4d9d-9d38-bffe59467d2d@104.18.14.201:2096?type=ws&security=tls&encryption=none&sni=daluan.eu.org&host=daluan.eu.org#arq-Обход-1
-vless://fc625795-792d-4d9d-9d38-bffe59467d2d@104.18.2.26:2083?path=%2F&security=tls&encryption=none&host=daluan.eu.org&type=ws&sni=daluan.eu.org#arq-Обход-2
-vless://b4bc10bf-80f9-40c9-b4e5-29817c2f0992@l90909l.vip:8082?encryption=none&security=reality&sni=id.vk.com&fp=chrome&pbk=SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc&type=grpc&authority=&serviceName=vless-grpc-reality&mode=gun#arq-Обход-3
-vless://fc625795-792d-4d9d-9d38-bffe59467d2d@104.18.3.108:8443?type=ws&security=tls&encryption=none&sni=daluan.eu.org&host=daluan.eu.org#arq-Обход-4
-vless://fc625795-792d-4d9d-9d38-bffe59467d2d@104.18.3.150:443?path=%2F&security=tls&encryption=none&host=daluan.eu.org&fp=randomized&type=ws&sni=daluan.eu.org#arq-Обход-5
-vless://fc625795-792d-4d9d-9d38-bffe59467d2d@104.18.3.150:443?encryption=none&security=tls&sni=daluan.eu.org&insecure=0&allowInsecure=0&type=ws&host=daluan.eu.org&path=%2F#arq-Обход-6
+ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpvWklvQTY5UTh5aGNRVjhrYTNQYTNB@193.29.139.251:8080#🇳🇱 arq-1
+ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTprMWRCT21PQjRvcWk3VW1wMzdhMWJR@82.38.31.210:8080#🇳🇱 arq-2
+ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpvWklvQTY5UTh5aGNRVjhrYTNQYTNB@82.38.31.99:8080#🇳🇱 arq-3
+ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpvWklvQTY5UTh5aGNRVjhrYTNQYTNB@82.38.31.99:8080#🇳🇱 arq-4
+ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNToxa1ZyMEtBVElKSTdtd09G@admin.c1.havij.co:443#arq-5
+ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNToxa1ZyMEtBVElKSTdtd09G@admin.c1.havij.co:443#arq-6
+ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpXNzRYRkFMTEx1dzZtNUlB@admin.c1.webramz.co:443#arq-7
+ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpXNzRYRkFMTEx1dzZtNUlB@admin.c1.webramz.co:443#arq-8
+ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpXNzRYRkFMTEx1dzZtNUlB@series-a2.samanehha.co:443#arq-9
+ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNToxa1ZyMEtBVElKSTdtd09G@admin.c1.havij.co:443#arq-10
+trojan://trojan@136.244.105.89:82?security=tls&sni=jflsjlaf.pages.dev&type=ws&host=jflsjlaf.pages.dev&path=/#🇳🇱 arq-Обход-1
+vless://1c45e98c-8a4a-45e7-acc5-3a3cc962f463@144.31.220.136:25565?type=grpc&security=reality&fp=chrome&pbk=n00VSaVEImUfNI-8882Ecum-Er2KIHLg32Y-MWQGeh8&sni=hypixel.net&mode=gun&serviceName=#🇩🇪 arq-Обход-2
+vless://fc625795-792d-4d9d-9d38-bffe59467d2d@104.18.14.201:2096?path=%2F&security=tls&encryption=none&host=daluan.eu.org&type=ws&sni=daluan.eu.org#🇨🇦 arq-Обход-3
+vless://e060f013-53e5-4d88-bf5e-f93baa562ac5@fix3.braidpro.online:443?type=tcp&security=reality&encryption=none&flow=xtls-rprx-vision&fp=chrome&pbk=HjFePi_ejebCJfFbCIQk8T1dU148E8q2LIqMrjBqBik&sid=558319deaf4ae7b3&sni=fix3.braidpro.online#arq-Обход-4
+vless://fc625795-792d-4d9d-9d38-bffe59467d2d@104.18.3.108:8443?path=%2F&security=tls&encryption=none&host=daluan.eu.org&type=ws&sni=daluan.eu.org#🇨🇦 arq-Обход-5
+vless://fc625795-792d-4d9d-9d38-bffe59467d2d@104.18.2.26:2083?type=ws&security=tls&encryption=none&sni=daluan.eu.org&host=daluan.eu.org#🇨🇦 arq-Обход-6
+vless://97b2cd5b-b98d-494f-8f97-3a06e8c1bbd2@18.245.54.3:443?security=tls&alpn=h2%2Chttp%2F1.1&encryption=none&insecure=0&host=d2241b25w3zftf.cloudfront.net&fp=chrome&type=ws&allowInsecure=0&sni=d2241b25w3zftf.cloudfront.net#🇩🇪 arq-Обход-7
+vless://1c45e98c-8a4a-45e7-acc5-3a3cc962f463@144.31.220.155:45763?type=grpc&security=reality&encryption=none&fp=chrome&pbk=n00VSaVEImUfNI-8882Ecum-Er2KIHLg32Y-MWQGeh8&sni=alset.group&mode=gun#🇩🇪 arq-Обход-8
+vless://89b3cbba-e6ac-485a-9481-976a0415eab9@ciallo-egb.pages.dev:8443?type=ws&security=tls&encryption=none&host=CiallO-eGb.pAGEs.Dev#arq-Обход-9
+vless://89b3cbba-e6ac-485a-9481-976a0415eab9@ciallo-egb.pages.dev:2096?type=ws&security=tls&encryption=none&host=CIALlO-EgB.pAGES.dEV#arq-Обход-10
