@@ -278,6 +278,7 @@ from config import RESULTS_DIR, XRAY_BIN
 from downloader import download_all_tasks
 from parser import read_configs_from_file, read_mtproto_from_file
 from settings_manager import get_tasks, load_settings, save_settings, reset_to_defaults
+from setup_xray import ensure_xray
 from testers import test_xray_configs
 from testers_mtproto import test_mtproto_configs
 
@@ -431,7 +432,7 @@ KV = r'''
                     spacing: dp(8)
 
                     MDLabel:
-                        text: "Введите логин"
+                        text: "Логин"
                         theme_text_color: "Hint"
                         size_hint_y: None
                         height: dp(18)
@@ -442,7 +443,7 @@ KV = r'''
                         height: dp(44)
 
                     MDLabel:
-                        text: "Введите пароль"
+                        text: "Пароль"
                         theme_text_color: "Hint"
                         size_hint_y: None
                         height: dp(18)
@@ -1485,6 +1486,27 @@ class KivyGUIApp(MDApp):
 
         def worker():
             task_names = []
+            
+            # Предварительная проверка актуальности конфигов (как в main.py)
+            self._threadsafe_log("Проверка актуальности конфигов...", "info")
+            try:
+                # Скачиваем только выбранные задачи
+                download_all_tasks(sel, max_age_hours=24, force=False, log_func=self._threadsafe_log)
+            except Exception as e:
+                self._threadsafe_log(f"Ошибка при проверке актуальности: {e}", "error")
+
+            # Проверка и установка Xray (как в main.py)
+            self._threadsafe_log("Проверка Xray...", "info")
+            try:
+                actual_xray = ensure_xray(log_func=self._threadsafe_log)
+                if actual_xray:
+                    global XRAY_BIN
+                    XRAY_BIN = actual_xray
+                else:
+                    self._threadsafe_log("Xray не найден. Тестирование Xray может быть пропущено.", "warning")
+            except Exception as e:
+                self._threadsafe_log(f"Ошибка Xray: {e}", "error")
+
             for i, t in enumerate(sel, 1):
                 if self._stop_event.is_set():
                     break
