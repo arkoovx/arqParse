@@ -1634,14 +1634,13 @@ class KivyGUIApp(MDApp):
         threading.Thread(target=up, daemon=True).start()
 
     def _ask_update_sub_or_open_folder(self, tested_tasks=None):
-        """После теста спрашивает: обновить подписку. Если нет — открыть папку."""
+        """После теста спрашивает: обновить подписку (или GitHub для admin)."""
         print(f"[DEBUG] _ask_update_sub_or_open_folder вызван")
         session = auth_module.get_session()
         username = session.get("username") if session else None
-        if username == "admin":
-            print(f"[DEBUG] admin — открываю папку")
-            self.open_results()
-            return
+        
+        is_admin = (username == "admin")
+
         if not auth_module.is_logged_in():
             print(f"[DEBUG] не залогинен — открываю папку")
             self.open_results()
@@ -1661,19 +1660,29 @@ class KivyGUIApp(MDApp):
             def _on_yes(*_):
                 print(f"[DEBUG] Нажата кнопка Да")
                 dlg.dismiss()
-                self._upload_subscription(tested_tasks=tested_tasks)
+                if is_admin:
+                    self._push_to_github()
+                else:
+                    self._upload_subscription(tested_tasks=tested_tasks)
 
             def _on_no(*_):
                 print(f"[DEBUG] Нажата кнопка Нет")
                 dlg.dismiss()
                 self.open_results()
 
+            if is_admin:
+                headline = "Обновить GitHub?"
+                supporting = "Зафиксировать изменения в репозитории?"
+            else:
+                headline = "Обновить подписку?"
+                supporting = "Обновить вашу подписку на сервере?"
+
             dlg = MDDialog(
                 MDDialogHeadlineText(
-                    text="Обновить подписку?",
+                    text=headline,
                 ),
                 MDDialogSupportingText(
-                    text="Обновить вашу подписку на сервере?",
+                    text=supporting,
                 ),
                 MDDialogButtonContainer(
                     MDButton(
@@ -1703,6 +1712,64 @@ class KivyGUIApp(MDApp):
             import traceback
             traceback.print_exc()
             self.open_results()
+
+    # ─── GitHub интеграция ──────────────────────────────────────
+    def _push_to_github(self):
+        """Обновляет результаты в репозитории GitHub (аналог логики из main.py)."""
+        import subprocess
+        from datetime import datetime
+
+        def push_thread():
+            try:
+                self._threadsafe_log("Начинаю обновление GitHub...", "info")
+                project_dir = os.path.dirname(os.path.abspath(__file__))
+
+                # Собираем файлы результатов
+                from config import TASKS
+                result_filenames = {
+                    os.path.basename(task.get("out_file", ""))
+                    for task in TASKS
+                    if task.get("out_file")
+                }
+                result_filenames.add("all_top_vpn.txt")
+
+                result_files = []
+                for file in sorted(result_filenames):
+                    file_path = os.path.join(RESULTS_DIR, file)
+                    if os.path.exists(file_path):
+                        result_files.append(file_path)
+
+                if not result_files:
+                    self._threadsafe_log("Файлы результатов не найдены", "warning")
+                    return
+
+                # git add
+                for file_path in result_files:
+                    subprocess.run(["git", "add", file_path], check=True, capture_output=True, cwd=project_dir)
+
+                # git status check
+                status_result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, check=True, cwd=project_dir)
+                if not status_result.stdout.strip():
+                    self._threadsafe_log("Нет изменений для коммита", "warning")
+                    return
+
+                # git commit
+                commit_msg = f"Update VPN configs results - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                subprocess.run(["git", "commit", "-m", commit_msg], check=True, capture_output=True, cwd=project_dir)
+
+                # git push
+                push_result = subprocess.run(["git", "push"], capture_output=True, text=True, check=False, cwd=project_dir)
+
+                if push_result.returncode == 0:
+                    self._threadsafe_log("Результаты успешно обновлены на GitHub!", "success")
+                    Clock.schedule_once(lambda *_: self._toast("GitHub обновлен"), 0)
+                else:
+                    err = push_result.stderr or push_result.stdout
+                    self._threadsafe_log(f"Ошибка GitHub: {err.strip()}", "error")
+            except Exception as e:
+                self._threadsafe_log(f"Критическая ошибка Git: {e}", "error")
+
+        threading.Thread(target=push_thread, daemon=True).start()
 
     def merge_vpn_configs(self):
         """Объединяет top_base_vpn.txt и top_bypass_vpn.txt в all_top_vpn.txt."""
